@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+
+:root {
+  /* Brand Colors - Bakery Theme */
+  --color-primary: #8B4513;
+  /* Saddle Brown / Chocolate */
+  --color-primary-light: #A0522D;
+  /* Sienna */
+  --color-primary-dark: #5D4037;
+  /* Dark Brown */
+
+  /* Semantic Colors */
+  --color-success: #2E7D32;
+  /* Natural Green */
+  --color-danger: #C62828;
+  /* Deep Red */
+  --color-warning: #F57F17;
+  /* Burnt Orange */
+  --color-info: #8D6E63;
+  /* Warm Brown */
+
+  /* Neutral Colors - Warm Tones */
+  --color-bg-body: #FDFBF7;
+  /* Warm Cream White */
+  --color-bg-surface: #FFFFFF;
+  --color-text-main: #3E2723;
+  /* Very Dark Brown */
+  --color-text-muted: #795548;
+  /* Medium Brown */
+  --color-border: #EFEBE9;
+  /* Warm Light Gray */
+
+  /* UI Tokens */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  /* Softer, rounder corners */
+  --radius-lg: 24px;
+  --shadow-sm: 0 1px 3px rgba(62, 39, 35, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(62, 39, 35, 0.1), 0 2px 4px -1px rgba(62, 39, 35, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(62, 39, 35, 0.1), 0 4px 6px -2px rgba(62, 39, 35, 0.05);
+
+  /* Layout */
+  --max-width: 600px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  /* Removes blue highlight on mobile tap */
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-bg-body);
+  color: var(--color-text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* Common Utilities */
+html,
+body,
+#root {
+  height: 100%;
+  /* margin: 0; -- Removed as it's in global reset */
+  overflow: hidden;
+  /* Prevent body scroll */
+}
+
+/* Remove focus outlines on charts for touch devices - Aggressive Reset */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-layer,
+.recharts-tooltip-wrapper,
+svg,
+path,
+rect,
+g {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-focus-ring-color: transparent !important;
+}
+
+/* Hide scrollbar for chart but keep functionality */
+.chart-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.chart-scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 20px;
+  height: 100vh;
+  /* Fallback */
+  height: 100dvh;
+  /* Mobile viewport fix */
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  border: 1px solid var(--color-border);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.input-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.input-field {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Text Utilities */
+.text-success {
+  color: var(--color-success);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.font-bold {
+  font-weight: 700;
+}

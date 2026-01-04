@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user is in the authorized_users list
+    function isAuthorized() {
+      return exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email));
+    }
+
+    // Helper function to validate data structure (Data Integrity)
+    function isValidTransaction() {
+      // Ensure specific fields exist and are of correct types
+      return request.resource.data.amount is number
+             && request.resource.data.date is string
+             && request.resource.data.type in ['sale', 'expense'];
+    }
+
+    // Rules for the Transactions Collection
+    match /transactions/{transactionId} {
+      // 1. Only allow access if the user is logged in AND authorized
+      allow read, delete: if request.auth != null && isAuthorized();
+      
+      // 2. For creating/updating, ALSO validate the data format (prevent injection/bad data)
+      allow create, update: if request.auth != null 
+                              && isAuthorized() 
+                              && isValidTransaction();
+    }
+
+    // Rules for the Authorized Users Collection
+    match /authorized_users/{email} {
+      // 1. Users can ONLY see if *they* are authorized. They cannot view the full list.
+      // This prevents "User Enumeration" attacks.
+      allow read: if request.auth != null && request.auth.token.email == email;
+      
+      // 2. NO ONE can write here from the Client App (Admin Must use Console)
+      // This is the "Kill Switch" - only you control who gets in.
+      allow write: if false; 
+    }
+  }
+}
