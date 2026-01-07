@@ -3,15 +3,51 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="icon" type="image/png" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
+  <link rel="icon" type="image/png" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#8B4513" />
   <title>The Classic Confection</title>
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem('theme');
+      const theme = savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <style>
+    :root {
+      --bg-color: #FDFBF7;
+      --text-color: #8B4513;
+      --spinner-border: rgba(139, 69, 19, 0.1);
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #121212;
+      --text-color: #E0E0E0;
+      --spinner-border: rgba(255, 255, 255, 0.1);
+    }
+
     body {
       margin: 0;
-      background-color: #FDFBF7;
+      background-color: var(--bg-color);
+      transition: background-color 0.3s ease;
+      /* Default Light Gradient */
+      background-image:
+        radial-gradient(at 0% 0%, rgba(139, 69, 19, 0.2) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(46, 125, 50, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(139, 69, 19, 0.1) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, rgba(46, 125, 50, 0.1) 0px, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Dark Mode Gradient Matching App EXACTLY */
+    [data-theme="dark"] body {
+      background-image:
+        radial-gradient(at 10% 10%, rgba(139, 69, 19, 0.3) 0px, transparent 50%),
+        radial-gradient(at 90% 20%, rgba(46, 125, 50, 0.2) 0px, transparent 50%),
+        radial-gradient(at 50% 90%, rgba(139, 69, 19, 0.2) 0px, transparent 50%);
     }
 
     .initial-loader {
@@ -20,23 +56,87 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
-      font-family: system-ui, -apple-system, sans-serif;
-      color: #8B4513;
+      font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+      color: var(--text-color);
+    }
+
+    /* Logo Animation & Blending */
+    .glass-icon-container {
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 32px;
+      margin-bottom: 24px;
+      animation: pulse 2s infinite ease-in-out;
+
+      /* Default Light Mode Style */
+      background: transparent;
+      box-shadow: none;
+      border: none;
+    }
+
+    .splash-logo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 28px;
+    }
+
+    [data-theme="dark"] .glass-icon-container {
+      /* Real CSS Glass Effect */
+      background: rgba(30, 30, 30, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    [data-theme="dark"] .splash-logo {
+      /* Remove Black Background from Image */
+      mix-blend-mode: screen;
+      /* Ensure it fits nicely inside the padding */
+      width: 85%;
+      height: 85%;
+      border-radius: 0;
+      box-shadow: none;
     }
 
     .initial-spinner {
       width: 40px;
       height: 40px;
-      border: 4px solid rgba(139, 69, 19, 0.1);
+      border: 4px solid var(--spinner-border);
       border-radius: 50%;
       border-top-color: #8B4513;
       animation: spin 0.8s ease-in-out infinite;
       margin-bottom: 20px;
     }
 
+    [data-theme="dark"] .initial-spinner {
+      border-top-color: #FFD700;
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
       }
     }
   </style>
@@ -45,9 +145,21 @@
 <body>
   <div id="root">
     <div class="initial-loader">
+      <div class="glass-icon-container">
+        <img id="splash-icon" class="splash-logo" src="/logo-light.png" alt="TCC Logo" />
+      </div>
       <div class="initial-spinner"></div>
-      <div style="font-weight: 500; letter-spacing: 0.5px;">Loading The Classic Confection...</div>
+      <div style="font-weight: 500; letter-spacing: 0.5px; opacity: 0.8;">Loading The Classic Confection...</div>
     </div>
+    <script>
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const logoImg = document.getElementById('splash-icon');
+      if (currentTheme === 'dark') {
+        logoImg.src = '/logo-dark-transparent.png';
+      } else {
+        logoImg.src = '/logo-light.png';
+      }
+    </script>
   </div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

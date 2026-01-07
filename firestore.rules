@@ -2,39 +2,62 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user is in the authorized_users list
-    function isAuthorized() {
-      return exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email));
+    // =================================================================
+    // 🛡️ SECURITY MODEL v2: Operational Staff
+    // 1. GUEST (Not in DB): Blocked completely.
+    // 2. STAFF (In DB): Can View AND Operate (Add/Delete Sales).
+    // 3. ADMIN (In DB + role='admin'): Can Manage Users.
+    // =================================================================
+    
+    // -----------------------------------------------------------------
+    // HELPER FUNCTIONS
+    // -----------------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Helper function to validate data structure (Data Integrity)
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/authorized_users/$(request.auth.token.email));
+    }
+
+    // IS STAFF? (Anyone in the authorized list is considered Staff)
+    function isStaff() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email));
+    }
+
+    // IS ADMIN? (Must have specific role)
+    function isAdmin() {
+      return isStaff() && getUserDoc().data.role == 'admin';
+    }
+    
     function isValidTransaction() {
-      // Ensure specific fields exist and are of correct types
       return request.resource.data.amount is number
-             && request.resource.data.date is string
-             && request.resource.data.type in ['sale', 'expense'];
+             && request.resource.data.type in ['sale', 'expense']
+             && request.resource.data.description is string;
     }
 
-    // Rules for the Transactions Collection
-    match /transactions/{transactionId} {
-      // 1. Only allow access if the user is logged in AND authorized
-      allow read, delete: if request.auth != null && isAuthorized();
-      
-      // 2. For creating/updating, ALSO validate the data format (prevent injection/bad data)
-      allow create, update: if request.auth != null 
-                              && isAuthorized() 
-                              && isValidTransaction();
-    }
+    // -----------------------------------------------------------------
+    // COLLECTION RULES
+    // -----------------------------------------------------------------
 
-    // Rules for the Authorized Users Collection
+    // 1. Authorized Users List
     match /authorized_users/{email} {
-      // 1. Users can ONLY see if *they* are authorized. They cannot view the full list.
-      // This prevents "User Enumeration" attacks.
-      allow read: if request.auth != null && request.auth.token.email == email;
+      // Users can see their own entry
+      allow read: if isAuthenticated() && request.auth.token.email == email;
       
-      // 2. NO ONE can write here from the Client App (Admin Must use Console)
-      // This is the "Kill Switch" - only you control who gets in.
-      allow write: if false; 
+      // ONLY Admins can manage the staff list
+      allow write: if isAdmin();
     }
+
+    // 2. Transactions (Sales & Expenses)
+    match /transactions/{transactionId} {
+      // READ, CREATE, DELETE: Allowed for ALL Staff (so they can sell & fix mistakes)
+      allow read, create, delete: if isStaff();
+      
+      // Update check still validates data
+      allow update: if isStaff() && isValidTransaction();
+    }
+    
   }
 }

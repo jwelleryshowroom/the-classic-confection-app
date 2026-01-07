@@ -4,13 +4,13 @@ import { getFirestore } from "firebase/firestore";
 
 // TODO: Replace with your actual Firebase project config
 const firebaseConfig = {
-  apiKey: "AIzaSyBSEBIYY3f8kr_oifW3NuATP7qLMyNcuSY",
-  authDomain: "shyam-bakery-app.firebaseapp.com",
-  projectId: "shyam-bakery-app",
-  storageBucket: "shyam-bakery-app.firebasestorage.app",
-  messagingSenderId: "220642985890",
-  appId: "1:220642985890:web:c11851f2b14c02737314fb",
-  measurementId: "G-B40XQJM45T"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

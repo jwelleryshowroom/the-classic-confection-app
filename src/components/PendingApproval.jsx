@@ -1,9 +1,12 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { ShieldAlert, LogOut } from 'lucide-react';
 
 const PendingApproval = () => {
     const { user, logout } = useAuth();
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
 
     return (
         <div style={{
@@ -13,7 +16,8 @@ const PendingApproval = () => {
             justifyContent: 'center',
             height: '100vh',
             padding: '20px',
-            textAlign: 'center'
+            textAlign: 'center',
+            backgroundColor: 'var(--color-bg-body)'
         }}>
             <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
                 <div style={{ color: 'var(--color-warning)', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
@@ -24,7 +28,14 @@ const PendingApproval = () => {
                     Hello <b>{user.displayName}</b>,<br /><br />
                     Your account is waiting for administrator approval. Please contact the admin to enable access for:
                     <br />
-                    <code style={{ background: '#f1f5f9', padding: '4px', borderRadius: '4px', display: 'block', margin: '10px 0' }}>{user.email}</code>
+                    <code style={{
+                        background: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                        color: isDark ? '#E0E0E0' : '#475569',
+                        padding: '4px',
+                        borderRadius: '4px',
+                        display: 'block',
+                        margin: '10px 0'
+                    }}>{user.email}</code>
                 </p>
 
                 <button
