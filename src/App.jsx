@@ -28,7 +28,16 @@ import InstallPrompt from './components/InstallPrompt';
 
 const AuthenticatedApp = () => {
   const { theme } = useTheme();
-  const [currentView, setCurrentView] = useState('dashboard');
+
+  // 💾 PERSISTENCE: Check local storage for last visited view
+  const [currentView, setCurrentView] = useState(() => {
+    return localStorage.getItem('last_view') || 'dashboard';
+  });
+
+  // 💾 PERSISTENCE: Save view to local storage on change
+  React.useEffect(() => {
+    localStorage.setItem('last_view', currentView);
+  }, [currentView]);
 
   // Subtle glow for dark mode, Warm glow for light mode
   const getGlow = () => theme === 'dark'
