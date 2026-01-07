@@ -97,19 +97,19 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
         backgroundColor: 'var(--color-bg-secondary)',
         borderRadius: '100px',
         padding: '4px',
-        marginBottom: '24px',
+        marginBottom: '16px', // Reduced from 24px
         position: 'relative'
     };
 
     const inlineTabStyle = (isActive, type) => ({
         flex: 1,
-        padding: '10px',
+        padding: '8px', // Reduced from 10px
         borderRadius: '100px',
         backgroundColor: isActive ? (type === 'sale' ? 'var(--color-success)' : 'var(--color-danger)') : 'transparent',
         color: isActive ? 'white' : 'var(--color-text-muted)',
         border: 'none',
         boxShadow: isActive ? (type === 'sale' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 4px 12px rgba(239, 68, 68, 0.3)') : 'none',
-        fontSize: '0.95rem',
+        fontSize: '0.9rem', // Reduced slightly
         fontWeight: 600,
         display: 'flex',
         alignItems: 'center',
@@ -122,7 +122,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
 
     const inlineButtonStyle = {
         width: '100%',
-        marginTop: '10px',
+        marginTop: '8px',
         backgroundColor: type === 'sale' ? 'var(--color-success)' : 'var(--color-danger)',
         color: 'white',
         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
@@ -194,7 +194,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
             padding: 0,
             backgroundColor: 'transparent',
             position: 'relative'
-        } : { marginBottom: '20px', position: 'relative' }}>
+        } : { marginBottom: '16px', padding: '16px', position: 'relative' }}>
             {/* Tab-style Toggles */}
             <div style={isPopup ? popupTabContainerStyle : inlineTabContainerStyle}>
                 <button
@@ -213,7 +213,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                 </button>
             </div>
 
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleSubmit} noValidate autoComplete="off">
                 {isPopup && (
                     <style>
                         {`
@@ -224,13 +224,13 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         `}
                     </style>
                 )}
-                <div className={`input-group ${shake ? 'shake' : ''}`} style={{ position: 'relative', marginBottom: isPopup ? '12px' : '24px' }}>
+                <div className={`input-group ${shake ? 'shake' : ''}`} style={{ position: 'relative', marginBottom: isPopup ? '12px' : '16px' }}>
                     {titleError && (
                         <div className="modern-tooltip" style={{ bottom: '100%', marginBottom: '8px' }}>
                             {titleError}
                         </div>
                     )}
-                    <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)', marginBottom: '4px', fontSize: '0.85rem' } : {}}>Amount (₹)</label>
+                    <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)', marginBottom: '4px', fontSize: '0.85rem' } : { marginBottom: '4px', fontSize: '0.85rem' }}>Amount (₹)</label>
                     <input
                         type="number"
                         className={`input-field ${isPopup ? 'glass-input' : ''}`}
@@ -246,11 +246,13 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         required
                         autoFocus={isPopup} // Auto focus if in modal
                         onFocus={() => onInputFocus?.()}
+                        inputMode="decimal" // Better mobile keyboard
+                        autoComplete="off"
                     />
                 </div>
 
-                <div className="input-group" style={{ marginBottom: isPopup ? '12px' : '24px' }}>
-                    <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)' } : {}}>Description (Optional)</label>
+                <div className="input-group" style={{ marginBottom: isPopup ? '12px' : '16px' }}>
+                    <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)' } : { marginBottom: '4px', fontSize: '0.85rem' }}>Description (Optional)</label>
                     <input
                         type="text"
                         className={`input-field ${isPopup ? 'glass-input' : ''}`}
@@ -259,6 +261,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         onFocus={() => onInputFocus?.()}
+                        autoComplete="off"
                     />
                     {/* Smart Chips 🧠 */}
                     {suggestions.length > 0 && (
