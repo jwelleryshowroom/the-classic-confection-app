@@ -4,7 +4,7 @@ import { useTransactions } from '../context/useTransactions';
 import { useAuth } from '../context/useAuth';
 import { useTheme } from '../context/useTheme';
 
-const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
+const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus, onInputBlur }) => {
     const { addTransaction, transactions } = useTransactions();
     const { role } = useAuth();
     const { theme } = useTheme();
@@ -250,6 +250,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         required
                         autoFocus={isPopup}
                         onFocus={() => onInputFocus?.()}
+                        onBlur={() => onInputBlur?.()}
                         inputMode="decimal" // Forces numeric keypad with dot
                         pattern="[0-9]*"   // iOS fallback hint
                         autoComplete="off"
@@ -273,6 +274,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         onFocus={() => onInputFocus?.()}
+                        onBlur={() => onInputBlur?.()}
                         autoComplete="off"
                         aria-autocomplete="list" // Hint that we provide our own list (chips)
                         autoCorrect="on"   // Keep "Text" correction

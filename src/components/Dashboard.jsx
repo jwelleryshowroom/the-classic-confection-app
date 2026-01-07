@@ -12,6 +12,21 @@ const Dashboard = () => {
     const { transactions, deleteTransaction } = useTransactions();
     const { dashboardMode } = useTheme();
     const { role } = useAuth();
+    const [isInputFocused, setIsInputFocused] = useState(false);
+    const focusTimeoutRef = React.useRef(null);
+
+    const handleInputFocus = () => {
+        if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+        setIsInputFocused(true);
+        setIsOverviewExpanded(false);
+    };
+
+    const handleInputBlur = () => {
+        focusTimeoutRef.current = setTimeout(() => {
+            setIsInputFocused(false);
+        }, 200); // Small delay to prevent flickering when switching fields
+    };
+
     const [isOverviewExpanded, setIsOverviewExpanded] = useState(true);
     const [accessDeniedModal, setAccessDeniedModal] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -51,23 +66,25 @@ const Dashboard = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {/* Toggle Header for Overview */}
-            <div
-                onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '6px', // Reduced from 10px
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    flexShrink: 0
-                }}
-            >
-                <h2 style={{ fontSize: '1.25rem', fontWeight: '700' }}>Today's Overview</h2>
-                <button className="btn" style={{ padding: '4px 8px', color: 'var(--color-text-muted)' }}>
-                    {isOverviewExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                </button>
-            </div>
+            {(!isInputFocused || dashboardMode !== 'inline') && (
+                <div
+                    onClick={() => setIsOverviewExpanded(!isOverviewExpanded)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '6px', // Reduced from 10px
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        flexShrink: 0
+                    }}
+                >
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: '700' }}>Today's Overview</h2>
+                    <button className="btn" style={{ padding: '4px 8px', color: 'var(--color-text-muted)' }}>
+                        {isOverviewExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
+                </div>
+            )}
 
             {/* Collapsible Section: Summary Cards + Form/Buttons */}
             {isOverviewExpanded && (
@@ -102,7 +119,10 @@ const Dashboard = () => {
             {/* Action Section - ALWAYS VISIBLE */}
             <div style={{ marginBottom: '10px', flexShrink: 0 }}>
                 {dashboardMode === 'inline' ? (
-                    <TransactionForm onInputFocus={() => setIsOverviewExpanded(false)} />
+                    <TransactionForm
+                        onInputFocus={handleInputFocus}
+                        onInputBlur={handleInputBlur}
+                    />
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <button
