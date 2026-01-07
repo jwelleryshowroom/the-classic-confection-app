@@ -232,8 +232,8 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                     )}
                     <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)', marginBottom: '4px', fontSize: '0.85rem' } : { marginBottom: '4px', fontSize: '0.85rem' }}>Amount (₹)</label>
                     <input
-                        type="text" // 'number' type triggers autofill strip on Chrome. 'text' + inputMode is suppressed.
-                        name="trx_amt_x8z"
+                        type="search" // 'search' type effectively disables address/cc autofill on Chrome/Android
+                        name="trx_amt_search"
                         id="amount_field"
                         className={`input-field ${isPopup ? 'glass-input' : ''}`}
                         style={isPopup ? glassInputStyle : {}}
