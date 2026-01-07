@@ -52,7 +52,23 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus, onInpu
                 if (!inputLower) return true;
                 return desc.toLowerCase().includes(inputLower);
             })
-            .sort((a, b) => b[1] - a[1])
+            .sort((a, b) => {
+                const descA = a[0].toLowerCase();
+                const descB = b[0].toLowerCase();
+
+                // 1. Exact Match Priority
+                if (descA === inputLower) return -1;
+                if (descB === inputLower) return 1;
+
+                // 2. Starts With Priority
+                const aStarts = descA.startsWith(inputLower);
+                const bStarts = descB.startsWith(inputLower);
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+
+                // 3. Frequency Priority
+                return b[1] - a[1];
+            })
             .map(entry => entry[0])
             .slice(0, 5);
 
