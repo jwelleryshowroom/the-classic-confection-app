@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import bgImage from '../assets/bakery_bg.png'; // We will move the image here
+import { useTheme } from '../context/ThemeContext';
+import bgImage from '../assets/bakery_bg.png';
 
 const Login = () => {
     const { login } = useAuth();
+    const { theme } = useTheme();
     const [error, setError] = useState('');
+    const isDark = theme === 'dark';
 
     const handleLogin = async () => {
         try {
@@ -23,19 +26,20 @@ const Login = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            backgroundColor: isDark ? '#1a1a1a' : '#f5f1ed',
             backgroundImage: `url(${bgImage})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             position: 'relative'
         }}>
-            {/* Dark Overlay for readability */}
+            {/* Theme-Adaptive Overlay */}
             <div style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                backgroundColor: isDark ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.7)',
                 backdropFilter: 'blur(3px)'
             }}></div>
 
@@ -44,27 +48,28 @@ const Login = () => {
                 width: '90%',
                 position: 'relative',
                 zIndex: 10,
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                backgroundColor: isDark ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)',
                 borderRadius: '24px',
                 padding: '40px 30px',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                boxShadow: isDark ? '0 20px 25px -5px rgba(0, 0, 0, 0.5)' : '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
                 textAlign: 'center',
-                animation: 'fadeIn 0.6s ease-out'
+                animation: 'fadeIn 0.6s ease-out',
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)'
             }}>
                 <div style={{ marginBottom: '24px' }}>
                     <div style={{
                         fontSize: '2rem',
                         fontFamily: '"Playfair Display", serif',
                         fontWeight: 700,
-                        color: '#4a3b32', // Chocolate/Dark Brown
+                        color: isDark ? '#E0E0E0' : '#4a3b32',
                         lineHeight: 1.2,
                         marginBottom: '8px'
                     }}>
                         The Classic<br />Confection
                     </div>
                     <div style={{
-                        color: '#8c7e72',
+                        color: isDark ? '#A0A0A0' : '#8c7e72',
                         fontSize: '0.9rem',
                         fontWeight: 500,
                         textTransform: 'uppercase',
@@ -77,19 +82,19 @@ const Login = () => {
                 <div style={{
                     height: '1px',
                     width: '60px',
-                    backgroundColor: '#e5e7eb',
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb',
                     margin: '0 auto 30px'
                 }}></div>
 
                 {error && (
                     <div style={{
-                        backgroundColor: '#fee2e2',
-                        color: '#991b1b',
+                        backgroundColor: isDark ? 'rgba(220, 38, 38, 0.2)' : '#fee2e2',
+                        color: isDark ? '#fca5a5' : '#991b1b',
                         padding: '12px',
                         borderRadius: '12px',
                         marginBottom: '24px',
                         fontSize: '0.9rem',
-                        border: '1px solid #fecaca'
+                        border: isDark ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid #fecaca'
                     }}>
                         {error}
                     </div>
@@ -100,29 +105,27 @@ const Login = () => {
                     className="btn"
                     style={{
                         width: '100%',
-                        backgroundColor: '#ffffff',
-                        color: '#374151',
-                        border: '1px solid #e5e7eb',
+                        backgroundColor: isDark ? '#2C2C2C' : '#ffffff',
+                        color: isDark ? '#E0E0E0' : '#374151',
+                        border: isDark ? '1px solid #444' : '1px solid #e5e7eb',
                         padding: '12px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: '12px',
-                        borderRadius: '50px', // Pill shape
+                        borderRadius: '50px',
                         fontSize: '1rem',
                         fontWeight: 500,
                         transition: 'all 0.2s ease',
                         boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
                     }}
                     onMouseOver={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f9fafb';
-                        e.currentTarget.style.borderColor = '#d1d5db';
-                        e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+                        e.currentTarget.style.backgroundColor = isDark ? '#383838' : '#f9fafb';
+                        e.currentTarget.style.borderColor = isDark ? '#555' : '#d1d5db';
                     }}
                     onMouseOut={(e) => {
-                        e.currentTarget.style.backgroundColor = '#ffffff';
-                        e.currentTarget.style.borderColor = '#e5e7eb';
-                        e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                        e.currentTarget.style.backgroundColor = isDark ? '#2C2C2C' : '#ffffff';
+                        e.currentTarget.style.borderColor = isDark ? '#444' : '#e5e7eb';
                     }}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24">

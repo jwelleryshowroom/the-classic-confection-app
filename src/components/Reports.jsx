@@ -4,15 +4,16 @@ import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, for
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download, BarChart2, Calendar as CalendarIcon, Inbox } from 'lucide-react';
+import { Download, BarChart2, Calendar as CalendarIcon, Inbox, PieChart as PieChartIcon } from 'lucide-react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import ExportModal from './ExportModal';
 
 // Override some calendar styles
 const calendarStyles = `
   .react-calendar {
     width: 100%;
-    background: white;
+    background: var(--color-bg-surface);
     border: none;
     border-radius: var(--radius-md);
     font-family: 'Outfit', sans-serif;
@@ -27,16 +28,21 @@ const calendarStyles = `
   }
   .react-calendar__navigation button {
     min-width: 44px;
-    background: none;
+    background: transparent !important;
     font-size: 1.1rem;
     font-weight: 700;
     margin-top: 8px;
     color: var(--color-primary);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+  }
+  .react-calendar__navigation button:disabled {
+    background-color: transparent !important;
+    opacity: 0.3;
   }
   .react-calendar__navigation button:enabled:hover,
   .react-calendar__navigation button:enabled:focus {
-    background-color: var(--color-bg-body);
-    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-body) !important;
   }
   .react-calendar__month-view__weekdays {
     text-align: center;
@@ -106,6 +112,15 @@ const calendarStyles = `
   .react-calendar__tile--active:enabled:focus {
     background: var(--color-primary-dark);
   }
+  .react-calendar__tile:disabled {
+    background-color: transparent !important;
+    color: var(--color-text-muted) !important;
+    opacity: 0.4;
+  }
+  .react-calendar__month-view__days__day--neighboringMonth {
+    color: var(--color-text-muted) !important;
+    opacity: 0.5;
+  }
   /* Indicator for data */
   .tile-dot {
       height: 4px;
@@ -171,12 +186,13 @@ const EmptyState = ({ message }) => (
     </div>
 );
 
-const Reports = () => {
-    const { transactions } = useTransactions();
-    const [view, setView] = useState('weekly'); // 'weekly', 'monthly', 'daily'
+const Reports = ({ setCurrentView }) => {
+    const { transactions, loading, setViewDateRange, currentRange } = useTransactions();
+    const [view, setView] = useState('monthly'); // Default to monthly for performance
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [showChart, setShowChart] = useState(false);
     const [showCalendar, setShowCalendar] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
 
     const reportData = useMemo(() => {
         const now = new Date();
@@ -223,39 +239,31 @@ const Reports = () => {
         setShowCalendar(false); // Close calendar after selection
     };
 
-    const exportPDF = () => {
-        try {
-            const doc = new jsPDF();
-            let title = `${view === 'weekly' ? 'Weekly' : view === 'monthly' ? 'Monthly' : 'Daily'} Report`;
-            if (view === 'daily') title += ` (${format(selectedDate, 'dd/MM/yyyy')})`;
 
-            doc.text(title, 14, 15);
+    // Effect to Sync Context with View
+    React.useEffect(() => {
+        const now = selectedDate; // Use selected date as anchor
+        let start, end;
 
-            const tableColumn = ["Date", "Description", "Type", "Amount"];
-            const tableRows = [];
-
-            reportData.forEach(t => {
-                const ticketData = [
-                    format(new Date(t.date), 'dd/MM/yyyy h:mm a'),
-                    t.description,
-                    t.type,
-                    t.amount.toFixed(2)
-                ];
-                tableRows.push(ticketData);
-            });
-
-            autoTable(doc, {
-                head: [tableColumn],
-                body: tableRows,
-                startY: 20
-            });
-
-            doc.save(`report_${view}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        } catch (error) {
-            console.error("PDF Export Error:", error);
-            alert("Failed to export PDF: " + error.message);
+        if (view === 'daily') {
+            // For daily view, we might want to load the whole month to make calendar navigation smooth, 
+            // or just the day. Let's load the MONTH of the selected date so the calendar dots work.
+            start = startOfMonth(now);
+            end = endOfMonth(now);
+        } else if (view === 'weekly') {
+            start = startOfWeek(now, { weekStartsOn: 1 });
+            end = endOfWeek(now, { weekStartsOn: 1 });
+        } else {
+            // Monthly
+            start = startOfMonth(now);
+            end = endOfMonth(now);
         }
-    };
+
+        // Only update if range is different (Simple check using ISO string)
+        if (start.toISOString() !== currentRange.start.toISOString() || end.toISOString() !== currentRange.end.toISOString()) {
+            setViewDateRange(start, end);
+        }
+    }, [view, selectedDate, setViewDateRange]); // Intentionally omitting currentRange from dependency to avoid loop, though the check above handles it.
 
     const toggleView = (newView) => {
         if (newView === 'daily') {
@@ -268,9 +276,16 @@ const Reports = () => {
     };
 
     const getTitle = () => {
-        if (view === 'weekly') return "This Week's Report";
-        if (view === 'monthly') return "This Month's Report";
-        return `Report for ${format(selectedDate, 'dd MMM yyyy')}`;
+        const now = new Date();
+        if (view === 'weekly') {
+            const start = startOfWeek(now, { weekStartsOn: 1 });
+            const end = endOfWeek(now, { weekStartsOn: 1 });
+            return `This Week (${format(start, 'dd MMM')} - ${format(end, 'dd MMM')})`;
+        }
+        if (view === 'monthly') {
+            return `This Month (${format(now, 'MMMM yyyy')})`;
+        }
+        return `Daily Report (${format(selectedDate, 'dd MMM yyyy')})`;
     };
 
     return (
@@ -290,68 +305,124 @@ const Reports = () => {
                     box-shadow: none !important;
                      -webkit-tap-highlight-color: transparent !important;
                 }
+                
+                .report-nav-btn {
+                    transition: all 0.2s ease;
+                }
+                .report-nav-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                    z-index: 5;
+                }
+                .report-nav-btn:active {
+                    transform: translateY(0);
+                    box-shadow: none;
+                }
+
+                .reports-title {
+                    margin: 0;
+                    font-size: 1.25rem;
+                    white-space: nowrap;
+                    color: var(--color-text-main);
+                    font-weight: 700;
+                }
+
+                @media (max-width: 480px) {
+                    .reports-title {
+                        font-size: 0.85rem !important;
+                    }
+                }
             `}</style>
             <div style={{
                 display: 'flex',
                 gap: '8px',
-                marginBottom: '16px',
-                flexShrink: 0
+                padding: '20px 0 8px', // Even more room for the hover "pop",
+                marginTop: '-10px', // Compensate for the extra padding
+                marginBottom: '10px',
+                flexShrink: 0,
+                overflow: 'visible'
             }}>
-                {/* Calendar Toggle Button */}
+                <button
+                    onClick={() => {
+                        setSelectedDate(new Date());
+                        setView('daily');
+                        setShowCalendar(false);
+                    }}
+                    className={`btn report-nav-btn ${view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar ? 'btn-primary' : ''}`}
+                    style={{
+                        flex: 1,
+                        padding: '12px',
+                        backgroundColor: (view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar) ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                        color: (view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar) ? 'white' : 'var(--color-text-main)',
+                        border: (view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar) ? 'none' : '1px solid var(--color-border)',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                        borderRadius: '16px'
+                    }}
+                >
+                    Today 🍕
+                </button>
+
+                <button
+                    className={`btn report-nav-btn ${view === 'weekly' ? 'btn-primary' : ''}`}
+                    onClick={() => toggleView('weekly')}
+                    style={{
+                        flex: 1,
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                        padding: '12px',
+                        backgroundColor: view !== 'weekly' ? 'var(--color-bg-surface)' : undefined,
+                        color: view !== 'weekly' ? 'var(--color-text-main)' : undefined,
+                        border: view !== 'weekly' ? '1px solid var(--color-border)' : undefined,
+                        borderRadius: '16px'
+                    }}
+                >
+                    Week 🍩
+                </button>
+
+                <button
+                    className={`btn report-nav-btn ${view === 'monthly' ? 'btn-primary' : ''}`}
+                    onClick={() => toggleView('monthly')}
+                    style={{
+                        flex: 1,
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                        padding: '12px',
+                        backgroundColor: view !== 'monthly' ? 'var(--color-bg-surface)' : undefined,
+                        color: view !== 'monthly' ? 'var(--color-text-main)' : undefined,
+                        border: view !== 'monthly' ? '1px solid var(--color-border)' : undefined,
+                        borderRadius: '16px'
+                    }}
+                >
+                    Month 🥐
+                </button>
+
                 <button
                     onClick={() => toggleView('daily')}
-                    className={`btn ${view === 'daily' ? 'btn-primary' : ''}`}
+                    className={`btn report-nav-btn ${showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date())) ? 'btn-primary' : ''}`}
                     style={{
-                        padding: '8px 12px',
-                        backgroundColor: view !== 'daily' ? 'white' : undefined,
-                        border: view !== 'daily' ? '1px solid var(--color-border)' : undefined
+                        padding: '12px',
+                        backgroundColor: (showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date()))) ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                        color: (showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date()))) ? 'white' : 'var(--color-text-main)',
+                        border: (showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date()))) ? 'none' : '1px solid var(--color-border)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '16px'
                     }}
                     title="Select Date"
                 >
-                    <CalendarIcon size={18} /> Daily
-                </button>
-
-                <div style={{ display: 'flex', flex: 1, gap: '8px' }}>
-                    <button
-                        className={`btn ${view === 'weekly' ? 'btn-primary' : ''}`}
-                        onClick={() => toggleView('weekly')}
-                        style={{ flex: 1, fontSize: '0.9rem', padding: '8px 12px', backgroundColor: view !== 'weekly' ? 'white' : undefined, border: view !== 'weekly' ? '1px solid var(--color-border)' : undefined }}
-                    >
-                        Week
-                    </button>
-                    <button
-                        className={`btn ${view === 'monthly' ? 'btn-primary' : ''}`}
-                        onClick={() => toggleView('monthly')}
-                        style={{ flex: 1, fontSize: '0.9rem', padding: '8px 12px', backgroundColor: view !== 'monthly' ? 'white' : undefined, border: view !== 'monthly' ? '1px solid var(--color-border)' : undefined }}
-                    >
-                        Month
-                    </button>
-                </div>
-
-                <button
-                    onClick={() => setShowChart(!showChart)}
-                    className="btn"
-                    style={{
-                        padding: '8px',
-                        backgroundColor: showChart ? 'var(--color-primary-light)' : 'white',
-                        color: showChart ? 'white' : 'var(--color-primary)',
-                        border: '1px solid var(--color-border)',
-                        display: view === 'daily' ? 'none' : 'flex' // Hide chart toggle in daily view if not needed, or keep it.
-                    }}
-                    title="Toggle Chart"
-                >
-                    <BarChart2 size={20} />
-                </button>
-
-                <button
-                    onClick={exportPDF}
-                    className="btn"
-                    style={{ padding: '8px', backgroundColor: 'white', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
-                    title="Export PDF"
-                >
-                    <Download size={20} />
+                    <CalendarIcon size={20} />
                 </button>
             </div>
+
+            {/* Export Modal */}
+            <ExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+            />
 
             {/* Calendar Widget (Conditional) */}
             {showCalendar && (
@@ -365,80 +436,116 @@ const Reports = () => {
                 </div>
             )}
 
-            {/* Chart Section (Collapsible & Hidden on Daily by default unless meaningful) */}
-            {showChart && view !== 'daily' && (
-                <div className="card" style={{ marginBottom: '16px', height: '240px', flexShrink: 0, paddingBottom: '10px' }}>
-                    <div className="chart-scroll-container" style={{ width: '100%', height: '100%', overflowX: 'auto', overflowY: 'hidden', outline: 'none' }}>
-                        <div style={{ width: `${Math.max(100, chartData.length * 60)}%`, minWidth: '100%', height: '100%', outline: 'none' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    data={chartData}
-                                    margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis
-                                        dataKey="name"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }}
-                                        dy={10}
-                                        interval={0} // Show all ticks if possible, scrolling handles space
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 12, fill: 'var(--color-text-muted)' }}
-                                    />
-                                    <Tooltip content={<CustomTooltip />} cursor={false} />
-                                    <Bar dataKey="sales" fill="var(--color-success)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                                    <Bar dataKey="expense" fill="var(--color-danger)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* View Title */}
-            <h3 style={{ marginBottom: '16px', flexShrink: 0 }}>{getTitle()}</h3>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexShrink: 0, gap: '8px', flexWrap: 'nowrap' }}>
+                <h3 className="reports-title">{getTitle()}</h3>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={() => setCurrentView('analytics')}
+                        className="btn btn-premium-hover"
+                        style={{
+                            padding: '8px 12px',
+                            backgroundColor: 'var(--color-bg-surface)',
+                            color: 'var(--color-primary)',
+                            border: '1px solid var(--color-border)',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}
+                    >
+                        <PieChartIcon size={18} /> Analytics
+                    </button>
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        className="btn btn-premium-hover"
+                        style={{
+                            padding: '8px 12px',
+                            backgroundColor: 'var(--color-bg-surface)',
+                            color: 'var(--color-text-main)',
+                            border: '1px solid var(--color-border)',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}
+                    >
+                        <Download size={18} /> Export
+                    </button>
+                </div>
+            </div>
 
             {/* Table Section (Flex 1) */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* Table Section (Flex 1) */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                {loading && (
+                    <div style={{
+                        position: 'absolute', inset: 0, backgroundColor: 'var(--color-bg-surface-transparent)',
+                        zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                        <div className="spinner"></div>
+                    </div>
+                )}
                 <div style={{ overflowY: 'auto', flex: 1 }}>
                     {reportData.length > 0 ? (
                         <>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', padding: '16px', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10 }}>
-                                {/* Aggregates (Sticky at top of card) */}
-                                {[
-                                    { label: 'Total Sales', value: reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : 0), 0), color: 'var(--color-success)' },
-                                    { label: 'Total Expense', value: reportData.reduce((acc, curr) => acc + (curr.type === 'expense' ? curr.amount : 0), 0), color: 'var(--color-danger)' },
-                                    { label: 'Net Profit', value: reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : -curr.amount), 0), color: 'inherit' }
-                                ].map((item, i) => (
-                                    <div key={i}>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{item.label}</div>
-                                        <div style={{ color: item.color, fontWeight: 'bold' }}>₹{item.value.toFixed(2)}</div>
-                                    </div>
-                                ))}
+                            <div style={{ borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, backgroundColor: 'var(--color-bg-surface)', zIndex: 10 }}>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '100px 1fr 125px',
+                                    maxWidth: '600px',
+                                    margin: '0 auto',
+                                    padding: '16px 0'
+                                }}>
+                                    {[
+                                        { label: 'Total Sales 🧁', value: reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : 0), 0), color: 'var(--color-success)', align: 'left', padding: '0 16px' },
+                                        { label: 'Total Expense 💸', value: reportData.reduce((acc, curr) => acc + (curr.type === 'expense' ? curr.amount : 0), 0), color: 'var(--color-danger)', align: 'center', padding: '0 8px' },
+                                        { label: 'Net Profit 💼', value: reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : -curr.amount), 0), color: 'var(--color-text-main)', align: 'right', padding: '0 16px' }
+                                    ].map((item, i) => (
+                                        <div key={i} style={{ textAlign: item.align, padding: item.padding, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '4px', whiteSpace: 'nowrap' }}>{item.label}</div>
+                                            <div style={{ color: item.color, fontWeight: '700', fontSize: '1.1rem', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
+                                                ₹ {item.value.toFixed(2)}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <table style={{
+                                width: '100%',
+                                maxWidth: '600px',
+                                margin: '0 auto',
+                                borderCollapse: 'collapse',
+                                fontSize: '0.9rem',
+                                tableLayout: 'fixed'
+                            }}>
                                 <thead style={{ position: 'sticky', top: '75px', backgroundColor: 'var(--color-bg-surface)', zIndex: 5, boxShadow: '0 1px 0 var(--color-border)' }}>
                                     <tr style={{ textAlign: 'left' }}>
-                                        <th style={{ padding: '8px' }}>Date</th>
-                                        <th style={{ padding: '8px' }}>Desc</th>
-                                        <th style={{ padding: '8px', textAlign: 'right' }}>Amount</th>
+                                        <th style={{ padding: '12px 16px', width: '100px', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
+                                        <th style={{ padding: '12px 8px', textAlign: 'center', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'right', width: '125px', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {reportData.map(t => (
-                                        <tr key={t.id} style={{ borderBottom: '1px solid var(--color-bg-body)' }}>
-                                            <td style={{ padding: '8px' }}>
-                                                <div>{format(new Date(t.date), 'dd/MM')}</div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{format(new Date(t.date), 'h:mm a')}</div>
+                                        <tr key={t.id} style={{ borderBottom: '1px solid var(--color-bg-body)', transition: 'background-color 0.2s' }}>
+                                            <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                                                <div style={{ fontWeight: '500', color: 'var(--color-text-main)' }}>{format(new Date(t.date), 'dd/MM')}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>{format(new Date(t.date), 'h:mm a')}</div>
                                             </td>
-                                            <td style={{ padding: '8px' }}>{t.description}</td>
-                                            <td style={{ padding: '8px', textAlign: 'right', color: t.type === 'sale' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                {t.type === 'sale' ? '+' : '-'}₹{t.amount}
+                                            <td style={{ padding: '12px 8px', verticalAlign: 'middle', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--color-text-main)' }}>
+                                                {t.description}
+                                            </td>
+                                            <td style={{ padding: '12px 16px', textAlign: 'right', verticalAlign: 'middle', fontWeight: '600' }}>
+                                                <div style={{ color: t.type === 'sale' ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                                    {t.type === 'sale' ? '+' : '-'}₹{t.amount.toLocaleString()}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -446,7 +553,7 @@ const Reports = () => {
                             </table>
                         </>
                     ) : (
-                        <EmptyState />
+                        !loading && <EmptyState message="No transactions for this range." />
                     )}
                 </div>
             </div>

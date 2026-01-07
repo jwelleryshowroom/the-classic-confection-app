@@ -2,73 +2,110 @@ import React, { useState } from 'react';
 import { TransactionProvider } from './context/TransactionContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
-import Reports from './components/Reports';
-import DataManagement from './components/DataManagement';
-import Login from './components/Login';
-import PendingApproval from './components/PendingApproval';
 import { LayoutDashboard, FileBarChart } from 'lucide-react';
 
+// Lazy Load Heavy Components
+const Reports = React.lazy(() => import('./components/Reports'));
+const Analytics = React.lazy(() => import('./components/Analytics'));
+const DataManagement = React.lazy(() => import('./components/DataManagement'));
+const Settings = React.lazy(() => import('./components/Settings'));
+
+// Simple Suspense Fallback
+const LoadingFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '300px' }}>
+    <div className="spinner"></div>
+  </div>
+);
+import PendingApproval from './components/PendingApproval';
+import Login from './components/Login';
+import InstallPrompt from './components/InstallPrompt';
+
 const AuthenticatedApp = () => {
-  const { user } = useAuth(); // kept for potential future use or context check
+  const { theme } = useTheme();
   const [currentView, setCurrentView] = useState('dashboard');
+
+  // Subtle glow for dark mode, Warm glow for light mode
+  const getGlow = () => theme === 'dark'
+    ? '0 0 15px -4px rgba(255, 255, 255, 0.1)'
+    : '0 0 20px -5px var(--color-primary-light), 0 4px 10px rgba(0,0,0,0.1)';
 
   return (
     <TransactionProvider>
       <Layout setCurrentView={setCurrentView}>
-        {/* Sticky Navigation Tabs - Segmented Control Style */}
+        {/* Modern Pill Navigation */}
         <div style={{
           display: 'flex',
-          marginBottom: '20px',
-          backgroundColor: 'var(--color-bg-body)', // Light gray background for the container
+          marginBottom: '20px', // Reduced from 32px
+          marginTop: '8px', // Reduced from 16px
+          backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.5)', // Adaptive background
           padding: '4px',
-          borderRadius: 'var(--radius-md)',
-          // boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)', // Subtle inset shadow for depth (optional, maybe too much)
-          border: '1px solid var(--color-border)',
-          flexShrink: 0,
+          borderRadius: '999px',
           position: 'sticky',
-          top: '10px',
-          zIndex: 50
+          top: '20px',
+          zIndex: 50,
+          backdropFilter: 'blur(12px)',
+          border: '1px solid var(--color-border)' // Add subtle border to container
         }}>
           <button
             onClick={() => setCurrentView('dashboard')}
-            className="btn-modern"
             style={{
               flex: 1,
-              padding: '10px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: currentView === 'dashboard' ? 'white' : 'transparent',
-              color: currentView === 'dashboard' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              padding: '12px 12px',
+              borderRadius: '999px',
+              backgroundColor: currentView === 'dashboard' ? 'var(--color-bg-surface-transparent)' : 'transparent',
+              color: currentView === 'dashboard' ? 'var(--color-text-main)' : 'var(--color-text-muted)',
+              fontSize: '1rem',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              border: 'none',
-              boxShadow: currentView === 'dashboard' ? '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' : 'none'
+              gap: '10px',
+              border: '1px solid',
+              borderColor: currentView === 'dashboard' ? 'var(--color-border)' : 'transparent',
+              boxShadow: currentView === 'dashboard' ? getGlow() : 'none',
+              backdropFilter: currentView === 'dashboard' ? 'blur(12px)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            onMouseEnter={(e) => {
+              if (currentView !== 'dashboard') e.currentTarget.style.color = 'var(--color-text-main)';
+            }}
+            onMouseLeave={(e) => {
+              if (currentView !== 'dashboard') e.currentTarget.style.color = 'var(--color-text-muted)';
             }}
           >
             <LayoutDashboard size={18} /> Dashboard
           </button>
+
           <button
             onClick={() => setCurrentView('reports')}
-            className="btn-modern"
             style={{
               flex: 1,
-              padding: '10px',
-              borderRadius: 'var(--radius-sm)',
-              backgroundColor: currentView === 'reports' ? 'white' : 'transparent',
-              color: currentView === 'reports' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+              padding: '12px 12px',
+              borderRadius: '999px',
+              backgroundColor: (currentView === 'reports' || currentView === 'analytics') ? 'var(--color-bg-surface-transparent)' : 'transparent',
+              color: (currentView === 'reports' || currentView === 'analytics') ? 'var(--color-text-main)' : 'var(--color-text-muted)',
+              fontSize: '1rem',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              border: 'none',
-              boxShadow: currentView === 'reports' ? '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' : 'none'
+              gap: '10px',
+              border: '1px solid',
+              borderColor: (currentView === 'reports' || currentView === 'analytics') ? 'var(--color-border)' : 'transparent',
+              boxShadow: (currentView === 'reports' || currentView === 'analytics') ? getGlow() : 'none',
+              backdropFilter: (currentView === 'reports' || currentView === 'analytics') ? 'blur(12px)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            onMouseEnter={(e) => {
+              if (currentView !== 'reports' && currentView !== 'analytics') e.currentTarget.style.color = 'var(--color-text-main)';
+            }}
+            onMouseLeave={(e) => {
+              if (currentView !== 'reports' && currentView !== 'analytics') e.currentTarget.style.color = 'var(--color-text-muted)';
             }}
           >
             <FileBarChart size={18} /> Reports
@@ -76,8 +113,40 @@ const AuthenticatedApp = () => {
         </div>
 
         {currentView === 'dashboard' && <Dashboard />}
-        {currentView === 'reports' && <Reports />}
-        {currentView === 'settings' && <DataManagement />}
+
+        <React.Suspense fallback={<LoadingFallback />}>
+          {/* Keep Reports mounted if view is reports OR analytics (so analytics overlays it) */}
+          {(currentView === 'reports' || currentView === 'analytics') && <Reports setCurrentView={setCurrentView} />}
+
+          {/* Analytics Overlay */}
+          <div className={`analytics-overlay ${currentView === 'analytics' ? 'active' : ''}`}>
+            {currentView === 'analytics' && <Analytics setCurrentView={setCurrentView} />}
+          </div>
+
+          {currentView === 'data' && <DataManagement onClose={() => setCurrentView('dashboard')} />}
+          {currentView === 'settings' && <Settings onClose={() => setCurrentView('dashboard')} />}
+        </React.Suspense>
+
+        <style>{`
+          .analytics-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+          }
+          .analytics-overlay.active {
+            opacity: 1;
+            visibility: visible;
+          }
+        `}</style>
 
       </Layout>
     </TransactionProvider>
@@ -99,14 +168,23 @@ const AppContent = () => {
 
   if (isAllowed === false) return <PendingApproval />;
 
-  return <AuthenticatedApp />;
+  if (isAllowed === false) return <PendingApproval />;
+
+  return (
+    <>
+      <InstallPrompt />
+      <AuthenticatedApp />
+    </>
+  );
 };
 
 function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <AppContent />
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
       </ToastProvider>
     </AuthProvider>
   );

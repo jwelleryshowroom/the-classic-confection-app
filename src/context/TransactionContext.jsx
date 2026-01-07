@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs, where } from 'firebase/firestore';
 import { useToast } from './ToastContext';
+import { startOfMonth, endOfMonth, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 const TransactionContext = createContext();
 
@@ -16,11 +17,22 @@ export const useTransactions = () => {
 export const TransactionProvider = ({ children }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Default range: Current Month
+    const [currentRange, setCurrentRange] = useState({
+        start: startOfMonth(new Date()),
+        end: endOfMonth(new Date())
+    });
     const { showToast } = useToast();
 
     useEffect(() => {
-        // Real-time listener for transactions
-        const q = query(collection(db, 'transactions'), orderBy('date', 'desc'));
+        setLoading(true);
+        // Optimized Listener: Only listen to the requested range
+        const q = query(
+            collection(db, 'transactions'),
+            where('date', '>=', currentRange.start.toISOString()),
+            where('date', '<=', currentRange.end.toISOString()),
+            orderBy('date', 'desc')
+        );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const docs = snapshot.docs.map(doc => ({
@@ -31,12 +43,25 @@ export const TransactionProvider = ({ children }) => {
             setLoading(false);
         }, (error) => {
             console.error("Error fetching transactions:", error);
-            showToast("Failed to sync data.", "error");
+            // Ignore specialized index errors initially, as they might pop up before index is built
+            if (error.code !== 'failed-precondition') {
+                showToast("Failed to sync data.", "error");
+            }
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [showToast]);
+    }, [currentRange, showToast]);
+
+    // Function to update the view (Components call this to switch context)
+    // Function to update the view (Components call this to switch context)
+    const setViewDateRange = React.useCallback((startDate, endDate) => {
+        // Ensure we cover the full day boundaries
+        setCurrentRange({
+            start: startOfDay(startDate),
+            end: endOfDay(endDate)
+        });
+    }, []);
 
     const addTransaction = async (transaction) => {
         try {
@@ -82,11 +107,15 @@ export const TransactionProvider = ({ children }) => {
                 where('date', '<=', endDate)
             );
             const snapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            snapshot.docs.forEach((doc) => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
+
+            // Firestore Batch has a limit of 500 operations
+            const docs = snapshot.docs;
+            for (let i = 0; i < docs.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = docs.slice(i, i + 500);
+                chunk.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            }
         } catch (error) {
             console.error("Error batch deleting transactions:", error);
             throw error;
@@ -96,11 +125,14 @@ export const TransactionProvider = ({ children }) => {
     const clearAllTransactions = async () => {
         try {
             const snapshot = await getDocs(collection(db, 'transactions'));
-            const batch = writeBatch(db);
-            snapshot.docs.forEach((doc) => {
-                batch.delete(doc.ref);
-            });
-            await batch.commit();
+            const docs = snapshot.docs;
+
+            for (let i = 0; i < docs.length; i += 500) {
+                const batch = writeBatch(db);
+                const chunk = docs.slice(i, i + 500);
+                chunk.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            }
         } catch (error) {
             console.error("Error clearing all transactions:", error);
             throw error;
@@ -108,7 +140,16 @@ export const TransactionProvider = ({ children }) => {
     };
 
     return (
-        <TransactionContext.Provider value={{ transactions, addTransaction, deleteTransaction, deleteTransactionsByDateRange, clearAllTransactions, loading }}>
+        <TransactionContext.Provider value={{
+            transactions,
+            addTransaction,
+            deleteTransaction,
+            deleteTransactionsByDateRange,
+            clearAllTransactions,
+            loading,
+            setViewDateRange, // New API
+            currentRange      // Expose current range state
+        }}>
             {children}
         </TransactionContext.Provider>
     );

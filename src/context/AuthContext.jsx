@@ -12,6 +12,11 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [isAllowed, setIsAllowed] = useState(null);
 
+    // Backend Role from Firestore
+    const [backendRole, setBackendRole] = useState(null);
+
+    const role = backendRole || 'guest';
+
     const login = () => {
         return signInWithPopup(auth, googleProvider);
     };
@@ -31,10 +36,13 @@ export const AuthProvider = ({ children }) => {
                     const docSnap = await getDoc(docRef);
 
                     if (docSnap.exists()) {
+                        const data = docSnap.data();
                         setIsAllowed(true);
+                        setBackendRole(data.role || 'guest');
                     } else {
                         console.warn("User email not found in authorized_users collection.");
                         setIsAllowed(false);
+                        setBackendRole('guest');
                     }
                 } catch (error) {
                     console.error("Error checking authorization:", error);
@@ -51,6 +59,7 @@ export const AuthProvider = ({ children }) => {
     const value = {
         user,
         isAllowed,
+        role,
         login,
         logout,
         loading
