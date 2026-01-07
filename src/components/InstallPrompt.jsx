@@ -40,7 +40,7 @@ const InstallPrompt = () => {
 
     if (!user) return null;
 
-    if (!isVisible || !user) return null;
+    // if (!isVisible || !user) return null; -> REMOVE
 
     return (
         <div style={{

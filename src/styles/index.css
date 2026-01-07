@@ -295,8 +295,14 @@ g {
   height: 100vh;
   gap: 16px;
   color: var(--color-text-main);
+  /* Ensure text is visible */
   background-color: var(--color-bg-body);
+  /* Ensure background matches theme */
   transition: all 0.3s ease;
+  position: absolute;
+  /* Cover potentially white root */
+  inset: 0;
+  z-index: 9999;
 }
 
 .spinner {
