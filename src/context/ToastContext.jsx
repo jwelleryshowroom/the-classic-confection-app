@@ -80,9 +80,11 @@ export const ToastProvider = ({ children }) => {
                             )}
                             <button
                                 onClick={() => removeToast(toast.id)}
-                                style={{ padding: '4px', opacity: 0.6, cursor: 'pointer' }}
+                                style={{ padding: '4px', opacity: 0.9, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.9'}
                             >
-                                <X size={16} />
+                                <X size={18} /> {/* Slightly larger for easier tapping */}
                             </button>
                         </div>
                     </div>
