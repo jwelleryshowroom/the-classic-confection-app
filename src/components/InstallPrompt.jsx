@@ -25,14 +25,17 @@ const InstallPrompt = () => {
     });
 
     useEffect(() => {
+        console.log("InstallPrompt: Mounted");
 
         const handler = (e) => {
+            console.log("InstallPrompt: beforeinstallprompt event fired!");
             // Prevent Chrome 67 and later from automatically showing the prompt
             e.preventDefault();
             // Stash the event so it can be triggered later.
             setDeferredPrompt(e);
             // Show the prompt
             setIsVisible(true);
+            console.log("InstallPrompt: set to visible");
         };
 
         window.addEventListener('beforeinstallprompt', handler);

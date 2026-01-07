@@ -135,7 +135,8 @@ const TransactionForm = ({ initialType = 'sale', onSuccess }) => {
         backgroundColor: 'var(--color-bg-glass-tab)',
         borderRadius: '100px',
         padding: '4px',
-        marginBottom: '24px',
+        padding: '4px',
+        marginBottom: '16px',
         position: 'relative',
         border: '1px solid var(--color-border)'
     };
@@ -224,13 +225,13 @@ const TransactionForm = ({ initialType = 'sale', onSuccess }) => {
                         `}
                     </style>
                 )}
-                <div className={`input-group ${shake ? 'shake' : ''}`} style={{ position: 'relative' }}>
+                <div className={`input-group ${shake ? 'shake' : ''}`} style={{ position: 'relative', marginBottom: isPopup ? '16px' : '24px' }}>
                     {titleError && (
                         <div className="modern-tooltip" style={{ bottom: '100%', marginBottom: '8px' }}>
                             {titleError}
                         </div>
                     )}
-                    <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)' } : {}}>Amount (₹)</label>
+                    <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)', marginBottom: '6px' } : {}}>Amount (₹)</label>
                     <input
                         type="number"
                         className={`input-field ${isPopup ? 'glass-input' : ''}`}
@@ -248,7 +249,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess }) => {
                     />
                 </div>
 
-                <div className="input-group">
+                <div className="input-group" style={{ marginBottom: isPopup ? '16px' : '24px' }}>
                     <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)' } : {}}>Description (Optional)</label>
                     <input
                         type="text"

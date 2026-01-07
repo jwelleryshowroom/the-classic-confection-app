@@ -21,10 +21,11 @@ const Modal = ({ isOpen, onClose, title, children }) => {
             inset: 0,
             zIndex: 1000,
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'center', // Default center
             justifyContent: 'center',
-            padding: '20px'
-        }}>
+            padding: '20px',
+            // Mobile Specific Overrides via Class/Style
+        }} className="modal-overlay">
             {/* Backdrop */}
             <div
                 onClick={onClose}
@@ -38,7 +39,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
             />
 
             {/* Content */}
-            <div style={{
+            <div className="modal-content" style={{
                 position: 'relative',
                 width: '100%',
                 maxWidth: '450px',
@@ -49,16 +50,17 @@ const Modal = ({ isOpen, onClose, title, children }) => {
                 animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 display: 'flex',
                 flexDirection: 'column',
-                maxHeight: '90vh',
+                maxHeight: '85vh', // Slightly reduced to allow margin
                 backdropFilter: 'blur(12px)'
             }}>
                 {/* Header */}
                 <div style={{
-                    padding: '20px 24px',
+                    padding: '16px 24px', // Compact Header
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    borderBottom: '1px solid var(--color-border)'
+                    borderBottom: '1px solid var(--color-border)',
+                    flexShrink: 0 // Prevent header from shrinking
                 }}>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, color: 'var(--color-text-main)' }}>
                         {title}
@@ -77,21 +79,18 @@ const Modal = ({ isOpen, onClose, title, children }) => {
                             justifyContent: 'center',
                             transition: 'all 0.2s'
                         }}
-                        onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = 'var(--color-bg-secondary)';
-                            e.target.style.color = 'var(--color-text-main)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = 'transparent';
-                            e.target.style.color = 'var(--color-text-muted)';
-                        }}
                     >
                         <X size={24} />
                     </button>
                 </div>
 
-                {/* Body */}
-                <div style={{ padding: '24px', overflow: 'visible' }}>
+                {/* Body - SCROLLABLE */}
+                <div style={{
+                    padding: '20px 24px',
+                    overflowY: 'auto', // ENABLE SCROLLING
+                    overscrollBehavior: 'contain',
+                    flex: 1 // Take remaining height
+                }}>
                     {children}
                 </div>
             </div>
@@ -104,6 +103,24 @@ const Modal = ({ isOpen, onClose, title, children }) => {
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
+                }
+                
+                /* Mobile Bottom Sheet Styles */
+                @media (max-width: 600px) {
+                    .modal-overlay {
+                        align-items: flex-end !important; /* Push to bottom */
+                        padding: 0 !important; /* Full width */
+                    }
+                    .modal-content {
+                        border-bottom-left-radius: 0 !important;
+                        border-bottom-right-radius: 0 !important;
+                        max-height: 90vh !important; /* Taller on mobile */
+                        animation: slideUpMobile 0.3s ease-out !important;
+                    }
+                }
+                @keyframes slideUpMobile {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
                 }
             `}</style>
         </div>

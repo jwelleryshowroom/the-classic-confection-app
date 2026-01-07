@@ -252,11 +252,19 @@ const Analytics = ({ setCurrentView }) => {
                 overflowY: 'auto',
                 padding: '0 24px 24px 24px',
             }}>
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', // Auto fit 2 columns
-                    gap: '20px'
-                }}>
+                <style>{`
+                    .analytics-grid {
+                        display: grid;
+                        grid-template-columns: 1fr;
+                        gap: 20px;
+                    }
+                    @media (min-width: 900px) {
+                        .analytics-grid {
+                            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                        }
+                    }
+                `}</style>
+                <div className="analytics-grid">
 
                     {/* Card 1: Sales vs Expense Trend - Spans full width ONLY for 30 days */}
                     <div className="card glass" style={{

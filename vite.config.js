@@ -13,12 +13,14 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'The Classic Confection - Tracker',
-        short_name: 'ClassicConfection',
-        description: 'Sales and Expense Tracker for The Classic Confection Bakery',
-        theme_color: '#8B4513',
-        background_color: '#FDFBF7',
+        name: 'The Classic Confection',
+        short_name: 'TCC',
+        description: 'Daily expense and sales tracker for The Classic Confection bakery.',
+        start_url: '/',
         display: 'standalone',
+        background_color: '#FDFBF7',
+        theme_color: '#8B4513',
+        orientation: 'portrait',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -33,8 +35,8 @@ export default defineConfig({
             purpose: 'any maskable'
           },
           {
-            src: 'logo-dark-transparent.png',
-            sizes: '512x512',
+            src: 'apple-touch-icon.png',
+            sizes: '1024x1024',
             type: 'image/png',
             purpose: 'any maskable'
           }
