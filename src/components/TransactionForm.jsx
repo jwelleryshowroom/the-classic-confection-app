@@ -233,7 +233,7 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                     <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)', marginBottom: '4px', fontSize: '0.85rem' } : { marginBottom: '4px', fontSize: '0.85rem' }}>Amount (₹)</label>
                     <input
                         type="number"
-                        name="math_amount" // Obscure name to prevent browser heuristics
+                        name="trx_amt_x8z" // Random name to defeat heuristics
                         id="amount_field"
                         className={`input-field ${isPopup ? 'glass-input' : ''}`}
                         style={isPopup ? glassInputStyle : {}}
@@ -249,7 +249,9 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         autoFocus={isPopup} // Auto focus if in modal
                         onFocus={() => onInputFocus?.()}
                         inputMode="decimal" // Better mobile keyboard
-                        autoComplete="off"
+                        autoComplete="off" // Standard "off"
+                        role="presentation" // Semantic hint
+                        aria-autocomplete="none" // Accessibility hint
                         autoCorrect="off"
                         autoCapitalize="off"
                         spellCheck="false"
@@ -260,8 +262,8 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                 <div className="input-group" style={{ marginBottom: isPopup ? '12px' : '16px' }}>
                     <label className="input-label" style={isPopup ? { color: 'var(--color-text-main)' } : { marginBottom: '4px', fontSize: '0.85rem' }}>Description (Optional)</label>
                     <input
-                        type="text"
-                        name="custom_desc" // Obscure name
+                        type="search" // Change type to 'search' sometimes helps as browsers don't autofill search bars with addresses
+                        name="trx_desc_q2w" // Random name
                         id="desc_field"
                         className={`input-field ${isPopup ? 'glass-input' : ''}`}
                         style={isPopup ? glassInputStyle : {}}
@@ -269,7 +271,8 @@ const TransactionForm = ({ initialType = 'sale', onSuccess, onInputFocus }) => {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         onFocus={() => onInputFocus?.()}
-                        autoComplete="off" // Stop "Data" autofill (cards, emails)
+                        autoComplete="off"
+                        aria-autocomplete="list" // Hint that we provide our own list (chips)
                         autoCorrect="on"   // Keep "Text" correction
                         spellCheck="true"  // Keep spellcheck
                     />
