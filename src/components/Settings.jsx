@@ -38,6 +38,35 @@ const Settings = ({ onClose }) => {
                     </h2>
                 </div>
 
+                {/* Munna Bhai Role Badge */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '24px',
+                    padding: '16px',
+                    backgroundColor: _role === 'admin' ? 'rgba(16, 185, 129, 0.1)' : _role === 'staff' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    borderRadius: '16px',
+                    border: `1px solid ${_role === 'admin' ? 'rgba(16, 185, 129, 0.3)' : _role === 'staff' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                }}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', fontWeight: 700, letterSpacing: '1px' }}>
+                            Current Role
+                        </div>
+                        <div style={{
+                            fontSize: '1.5rem',
+                            fontWeight: 800,
+                            marginTop: '4px',
+                            color: _role === 'admin' ? 'var(--color-success)' : _role === 'staff' ? 'var(--color-primary)' : 'var(--color-danger)'
+                        }}>
+                            {_role === 'admin' ? 'Munna Bhai 🕶️' : _role === 'staff' ? 'Circuit 🔌' : 'Mamu 🤕'}
+                        </div>
+                        <div style={{ fontSize: '0.9rem', color: 'var(--color-text-main)', marginTop: '4px', fontStyle: 'italic' }}>
+                            {_role === 'admin' ? '(The Boss)' : _role === 'staff' ? '(Right Hand)' : '(Just Watching)'}
+                        </div>
+                    </div>
+                </div>
+
                 <div style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: 600, marginBottom: '16px', color: 'var(--color-text-main)' }}>
                         Dashboard View Mode
@@ -210,7 +239,7 @@ const Settings = ({ onClose }) => {
                 )}
 
                 <div style={{ padding: '24px', textAlign: 'center', opacity: 0.3 }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>TCC App v1.0.6</div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>TCC App v1.0.7</div>
                     <div style={{ fontSize: '0.7rem' }}>© 2026 The Classic Confection</div>
                 </div>
             </div>

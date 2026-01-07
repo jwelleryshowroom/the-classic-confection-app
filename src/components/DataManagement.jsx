@@ -134,6 +134,36 @@ const DataManagement = ({ onClose }) => {
                 </p>
             </div>
 
+            {/* Role Explainer Card (Munna Bhai Theme) */}
+            <div className="card" style={{ marginBottom: '16px', padding: '16px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)' }}>
+                <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: 'var(--color-text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🎭 Role Guide
+                </h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        <div style={{ fontSize: '1.2rem', minWidth: '24px' }}>🕶️</div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-success)' }}>Munna Bhai (Admin)</div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>"Asli Boss. Hisab-kitab, tod-phod (delete), sab yahi karega."</div>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        <div style={{ fontSize: '1.2rem', minWidth: '24px' }}>🔌</div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-primary)' }}>Circuit (Staff)</div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>"Bhai ka right hand. Entry karega, par mitane (delete) ka haq nahi."</div>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                        <div style={{ fontSize: '1.2rem', minWidth: '24px' }}>🤕</div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-danger)' }}>Mamu (Guest)</div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>"Sirf dekhne ka. Haath nahi lagane ka."</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Toggle Switch */}
             <div style={{ display: 'flex', marginBottom: '16px', backgroundColor: 'var(--color-bg-surface)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                 {['day', 'week', 'month'].map(mode => (
