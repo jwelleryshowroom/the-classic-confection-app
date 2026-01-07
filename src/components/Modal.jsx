@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useInstall } from '../context/useInstall';
 
 const Modal = ({ isOpen, onClose, title, children }) => {
+    const { isStandalone } = useInstall();
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
@@ -33,7 +35,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
                 @media (max-width: 600px) {
                     .modal-overlay {
                         align-items: flex-start !important; /* Top aligned */
-                        padding-top: 10px !important; /* Space from top */
+                        padding-top: ${isStandalone ? '50px' : '10px'} !important; /* PWA: 50px, Web: 10px */
                     }
                 }
             `}</style>
