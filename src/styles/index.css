@@ -49,6 +49,7 @@
   --color-bg-surface-transparent: rgba(255, 255, 255, 0.85);
   --color-bg-secondary: #f4f4f5;
   /* Light gray for inactive buttons */
+  --color-primary-light-opacity: rgba(160, 82, 45, 0.15);
 }
 
 [data-theme="dark"] {
@@ -77,6 +78,7 @@
   --color-primary: #A1887F;
   --color-primary-light: #D7CCC8;
   --color-primary-dark: #8D6E63;
+  --color-primary-light-opacity: rgba(215, 204, 200, 0.15);
 }
 
 * {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs, where } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs, where, getAggregateFromServer, sum } from 'firebase/firestore';
 import { useToast } from './useToast';
 import { startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import { TransactionContext } from './TransactionContextDef';
@@ -45,11 +45,20 @@ export const TransactionProvider = ({ children }) => {
 
     // Function to update the view (Components call this to switch context)
     const setViewDateRange = React.useCallback((startDate, endDate) => {
-        setLoading(true);
-        // Ensure we cover the full day boundaries
-        setCurrentRange({
-            start: startOfDay(startDate),
-            end: endOfDay(endDate)
+        // Optimization: Prevent re-fetching if the range hasn't effectively changed
+        // We compare the timestamps of the intended start/end against the current state
+        const s = startOfDay(startDate);
+        const e = endOfDay(endDate);
+
+        setCurrentRange(prev => {
+            if (prev.start.getTime() === s.getTime() && prev.end.getTime() === e.getTime()) {
+                return prev; // No change, skip update
+            }
+            setLoading(true);
+            return {
+                start: s,
+                end: e
+            };
         });
     }, []);
 
@@ -120,6 +129,80 @@ export const TransactionProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Fetches aggregated stats (Sum of Sales, Sum of Expenses) directly from Firestore.
+     * efficient for large datasets as it doesn't download documents.
+     */
+    const getFinancialStats = React.useCallback(async (startDate, endDate) => {
+        try {
+            const coll = collection(db, 'transactions');
+
+            let salesQuery;
+            let expensesQuery;
+
+            // Check if asking for "All Time" (e.g., startDate is Epoch 1970)
+            // If so, we omit the date filter to use the default single-field index on 'type'
+            // instead of requiring a composite index (type + date).
+            const isAllTime = startDate.getFullYear() === 1970;
+
+            if (isAllTime) {
+                salesQuery = query(coll, where('type', '==', 'sale'));
+                expensesQuery = query(coll, where('type', '==', 'expense'));
+            } else {
+                salesQuery = query(
+                    coll,
+                    where('type', '==', 'sale'),
+                    where('date', '>=', startDate.toISOString()),
+                    where('date', '<=', endDate.toISOString())
+                );
+
+                expensesQuery = query(
+                    coll,
+                    where('type', '==', 'expense'),
+                    where('date', '>=', startDate.toISOString()),
+                    where('date', '<=', endDate.toISOString())
+                );
+            }
+
+            try {
+                const [salesSnapshot, expensesSnapshot] = await Promise.all([
+                    getAggregateFromServer(salesQuery, { total: sum('amount') }),
+                    getAggregateFromServer(expensesQuery, { total: sum('amount') })
+                ]);
+
+                const totalSales = salesSnapshot.data().total || 0;
+                const totalExpense = expensesSnapshot.data().total || 0;
+
+                return {
+                    totalSales,
+                    totalExpense,
+                    netProfit: totalSales - totalExpense
+                };
+            } catch (aggregationError) {
+                console.warn("Aggregation failed (likely missing index). Falling back to client-side calculation.", aggregationError);
+
+                // Fallback: Fetch all documents matching the query and sum manually
+                // This uses more bandwidth but avoids the index requirement
+                const [salesDocs, expensesDocs] = await Promise.all([
+                    getDocs(salesQuery),
+                    getDocs(expensesQuery)
+                ]);
+
+                const totalSales = salesDocs.docs.reduce((acc, doc) => acc + (doc.data().amount || 0), 0);
+                const totalExpense = expensesDocs.docs.reduce((acc, doc) => acc + (doc.data().amount || 0), 0);
+
+                return {
+                    totalSales,
+                    totalExpense,
+                    netProfit: totalSales - totalExpense
+                };
+            }
+        } catch (error) {
+            console.error("Error in getFinancialStats:", error);
+            return null;
+        }
+    }, [showToast]);
+
     const value = {
         transactions,
         loading,
@@ -128,7 +211,8 @@ export const TransactionProvider = ({ children }) => {
         addTransaction,
         deleteTransaction,
         deleteTransactionsByDateRange,
-        clearAllTransactions
+        clearAllTransactions,
+        getFinancialStats
     };
 
     return (

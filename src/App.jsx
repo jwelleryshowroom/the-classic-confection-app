@@ -132,7 +132,7 @@ const AuthenticatedApp = () => {
 
           <React.Suspense fallback={<LoadingFallback />}>
             {/* Keep Reports mounted if view is reports OR analytics (so analytics overlays it) */}
-            {(currentView === 'reports' || currentView === 'analytics') && <Reports setCurrentView={setCurrentView} />}
+            {(currentView === 'reports' || currentView === 'analytics') && <Reports setCurrentView={setCurrentView} isActive={currentView === 'reports'} />}
 
             {/* Analytics Overlay */}
             <div className={`analytics-overlay ${currentView === 'analytics' ? 'active' : ''}`}>

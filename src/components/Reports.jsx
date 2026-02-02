@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useTransactions } from '../context/useTransactions';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format, isSameDay, subWeeks, addWeeks, subMonths, addMonths, subDays, startOfDay, endOfDay, addDays } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Download, BarChart2, Calendar as CalendarIcon, Inbox, PieChart as PieChartIcon } from 'lucide-react';
+
+import { Download, BarChart2, Calendar as CalendarIcon, Inbox, PieChart as PieChartIcon, ChevronLeft, ChevronRight, Infinity as InfinityIcon, CalendarRange, CalendarDays } from 'lucide-react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import ExportModal from './ExportModal';
@@ -130,6 +131,13 @@ const calendarStyles = `
       left: 50%;
       transform: translateX(-50%);
   }
+
+  /* Helper for mobile hiding */
+  @media (max-width: 380px) {
+      .hide-mobile-xs {
+          display: none;
+      }
+  }
 `;
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -184,27 +192,100 @@ const EmptyState = () => (
     </div>
 );
 
-const Reports = ({ setCurrentView }) => {
-    const { transactions, loading, setViewDateRange, currentRange } = useTransactions();
-    const [view, setView] = useState('monthly'); // Default to monthly for performance
+const Reports = ({ setCurrentView, isActive }) => {
+    const { transactions, loading, setViewDateRange, currentRange, getFinancialStats } = useTransactions();
+    const [view, setView] = useState('monthly'); // 'daily', 'weekly', 'monthly', 'uptodate'
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [showCalendar, setShowCalendar] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [showAllHistory, setShowAllHistory] = useState(false);
+    const [asyncStats, setAsyncStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(false);
+
+    // Mobile Detection
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+    React.useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Navigation Handlers
+    const handlePrev = (e) => {
+        if (e) e.stopPropagation();
+        if (view === 'weekly') {
+            setSelectedDate(prev => subWeeks(prev, 1));
+        } else if (view === 'monthly') {
+            setSelectedDate(prev => subMonths(prev, 1));
+        } else if (view === 'daily') {
+            setSelectedDate(prev => subDays(prev, 1));
+        }
+    };
+
+    const handleNext = (e) => {
+        if (e) e.stopPropagation();
+        const today = new Date();
+        if (view === 'weekly') {
+            const nextWeek = addWeeks(selectedDate, 1);
+            if (startOfWeek(nextWeek, { weekStartsOn: 1 }) <= today) {
+                setSelectedDate(prev => addWeeks(prev, 1));
+            }
+        } else if (view === 'monthly') {
+            const nextMonth = addMonths(selectedDate, 1);
+            if (startOfMonth(nextMonth) <= today) {
+                setSelectedDate(prev => addMonths(prev, 1));
+            }
+        } else if (view === 'daily') {
+            const nextDay = addDays(selectedDate, 1);
+        }
+    };
+
+    // View Switch Handler
+    const switchToView = (newView) => {
+        if (newView === 'weekly' && view !== 'weekly') {
+            // User requested "Week should open this week"
+            setSelectedDate(new Date());
+        }
+        setView(newView);
+    };
+
+    // Check if "Next" should be disabled
+    const isNextDisabled = useMemo(() => {
+        const today = new Date();
+        if (view === 'weekly') {
+            const nextWeek = addWeeks(selectedDate, 1);
+            return startOfWeek(nextWeek, { weekStartsOn: 1 }) > today;
+        }
+        if (view === 'monthly') {
+            const nextMonth = addMonths(selectedDate, 1);
+            return startOfMonth(nextMonth) > today;
+        }
+        return false;
+    }, [view, selectedDate]);
 
     const reportData = useMemo(() => {
         const now = new Date();
         let start, end;
 
+        if (view === 'uptodate') {
+            return transactions.filter(t => new Date(t.date) <= now)
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
         if (view === 'daily') {
             return transactions.filter(t => isSameDay(new Date(t.date), selectedDate));
         }
 
+        const dateBase = selectedDate;
+
         if (view === 'weekly') {
-            start = startOfWeek(now, { weekStartsOn: 1 }); // Monday start
-            end = endOfWeek(now, { weekStartsOn: 1 });
+            start = startOfWeek(dateBase, { weekStartsOn: 1 });
+            end = endOfWeek(dateBase, { weekStartsOn: 1 });
         } else {
-            start = startOfMonth(now);
-            end = endOfMonth(now);
+            // Monthly
+            start = startOfMonth(dateBase);
+            end = endOfMonth(dateBase);
         }
 
         return transactions.filter(t =>
@@ -221,20 +302,25 @@ const Reports = ({ setCurrentView }) => {
     const handleDateChange = (date) => {
         setSelectedDate(date);
         setView('daily');
-        setShowCalendar(false); // Close calendar after selection
+        setShowCalendar(false);
     };
-
 
     // Effect to Sync Context with View
     React.useEffect(() => {
-        const now = selectedDate; // Use selected date as anchor
-        let start, end;
+        if (!isActive) return;
 
-        if (view === 'daily') {
-            // For daily view, we might want to load the whole month to make calendar navigation smooth, 
-            // or just the day. Let's load the MONTH of the selected date so the calendar dots work.
-            start = startOfMonth(now);
-            end = endOfMonth(now);
+        const now = selectedDate;
+        let start, end;
+        let shouldUseAsyncStats = false;
+
+        if (view === 'uptodate') {
+            shouldUseAsyncStats = true;
+            const today = new Date();
+            start = startOfDay(subDays(today, 7));
+            end = endOfDay(today);
+        } else if (view === 'daily') {
+            start = startOfDay(now);
+            end = endOfDay(now);
         } else if (view === 'weekly') {
             start = startOfWeek(now, { weekStartsOn: 1 });
             end = endOfWeek(now, { weekStartsOn: 1 });
@@ -244,164 +330,329 @@ const Reports = ({ setCurrentView }) => {
             end = endOfMonth(now);
         }
 
-        // Only update if range is different (Simple check using ISO string)
         if (start.toISOString() !== currentRange.start.toISOString() || end.toISOString() !== currentRange.end.toISOString()) {
             setViewDateRange(start, end);
         }
-    }, [view, selectedDate, setViewDateRange, currentRange.start, currentRange.end]);
 
-    const toggleView = (newView) => {
-        if (newView === 'daily') {
-            setShowCalendar(!showCalendar);
-            if (view !== 'daily') setView('daily');
+        if (shouldUseAsyncStats && !showAllHistory) {
+            setStatsLoading(true);
+            getFinancialStats(new Date(0), new Date()).then(stats => {
+                setAsyncStats(stats);
+                setStatsLoading(false);
+            });
         } else {
-            setView(newView);
-            setShowCalendar(false);
+            setAsyncStats(null);
         }
+
+    }, [view, selectedDate, setViewDateRange, currentRange.start, currentRange.end, isActive, getFinancialStats, showAllHistory]);
+
+    // Dynamic Header Text
+    const getHeaderText = () => {
+        if (view === 'uptodate') return isMobile ? 'Up to Date' : 'All Time Up to Date';
+        if (view === 'daily') return isMobile ? format(selectedDate, 'dd MMM yy') : `Daily: ${format(selectedDate, 'dd MMM yyyy')}`;
+
+        if (view === 'monthly') {
+            return isMobile
+                ? format(selectedDate, 'MMM yyyy')  // Short for Mobile: "Feb 2026"
+                : `This Month (${format(selectedDate, 'MMMM yyyy')})`;
+        }
+
+        if (view === 'weekly') {
+            const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
+            const end = endOfWeek(selectedDate, { weekStartsOn: 1 });
+            return isMobile
+                ? `${format(start, 'dd MMM')} - ${format(end, 'dd MMM')}`
+                : `This Week (${format(start, 'dd MMM')} - ${format(end, 'dd MMM')})`;
+        }
+        return 'Reports';
     };
 
-    const getTitle = () => {
-        const now = new Date();
-        if (view === 'weekly') {
-            const start = startOfWeek(now, { weekStartsOn: 1 });
-            const end = endOfWeek(now, { weekStartsOn: 1 });
-            return `This Week (${format(start, 'dd MMM')} - ${format(end, 'dd MMM')})`;
-        }
-        if (view === 'monthly') {
-            return `This Month (${format(now, 'MMMM yyyy')})`;
-        }
-        return `Daily Report (${format(selectedDate, 'dd MMM yyyy')})`;
-    };
+    const getTitle = getHeaderText;
+    const displayedTransactions = reportData;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div className="fade-in" style={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+        }}>
             <style>{calendarStyles}</style>
 
-            {/* Controls Header - Static (Flex item) */}
-            <style>{`
-                /* Hard override for Recharts focus outline */
-                .recharts-wrapper:focus,
-                .recharts-wrapper:active,
-                .recharts-surface:focus,
-                .recharts-layer:focus,
-                div[class^="recharts"]:focus {
-                    outline: none !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                     -webkit-tap-highlight-color: transparent !important;
-                }
-                
-                .report-nav-btn {
-                    transition: all 0.2s ease;
-                }
-                .report-nav-btn:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                    z-index: 5;
-                }
-                .report-nav-btn:active {
-                    transform: translateY(0);
-                    box-shadow: none;
-                }
-
-                .reports-title {
-                    margin: 0;
-                    font-size: 1.25rem;
-                    white-space: nowrap;
-                    color: var(--color-text-main);
-                    font-weight: 700;
-                }
-
-                @media (max-width: 480px) {
-                    .reports-title {
-                        font-size: 0.85rem !important;
-                    }
-                }
-            `}</style>
+            {/* 1. View Switcher & Date Nav - Responsive Flex/Grid */}
             <div style={{
                 display: 'flex',
-                gap: '8px',
-                padding: '20px 0 8px', // Even more room for the hover "pop",
-                marginTop: '-10px', // Compensate for the extra padding
-                marginBottom: '10px',
+                alignItems: 'center',
+                gap: isMobile ? '8px' : '12px',
+                marginBottom: isMobile ? '12px' : '16px',
+                width: '100%',
                 flexShrink: 0,
-                overflow: 'visible'
+                overflowX: isMobile ? 'auto' : 'visible', // Allow side scroll vs grid wrap
+                flexWrap: isMobile ? 'nowrap' : 'wrap', // Force single row on mobile
+                paddingBottom: isMobile ? '4px' : '0', // Space for scrollbar if any
             }}>
+                {/* UP TO DATE */}
                 <button
-                    onClick={() => {
-                        setSelectedDate(new Date());
-                        setView('daily');
-                        setShowCalendar(false);
-                    }}
-                    className={`btn report-nav-btn ${view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar ? 'btn-primary' : ''}`}
+                    onClick={() => switchToView('uptodate')}
                     style={{
-                        flex: 1,
-                        padding: '12px',
-                        backgroundColor: (view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar) ? 'var(--color-primary)' : 'var(--color-bg-surface)',
-                        color: (view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar) ? 'white' : 'var(--color-text-main)',
-                        border: (view === 'daily' && isSameDay(selectedDate, new Date()) && !showCalendar) ? 'none' : '1px solid var(--color-border)',
-                        fontSize: '0.9rem',
-                        fontWeight: 600,
-                        borderRadius: '16px'
+                        padding: isMobile ? '8px 10px' : '12px 16px',
+                        background: view === 'uptodate' ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                        color: view === 'uptodate' ? 'white' : 'var(--color-text-main)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        fontWeight: '600',
+                        fontSize: isMobile ? '0.8rem' : '0.9rem',
+                        cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '4px' : '8px',
+                        transition: 'all 0.2s',
+                        boxShadow: view === 'uptodate' ? '0 4px 12px var(--color-primary-light-opacity)' : 'none',
+                        height: isMobile ? '38px' : '48px',
+                        whiteSpace: 'nowrap',
+                        flex: isMobile ? '0 0 auto' : '1', // Mobile sets fixed size if needed
+                        flexGrow: isMobile ? 0 : 1
                     }}
                 >
-                    Today 🍕
+                    <InfinityIcon size={isMobile ? 16 : 18} />
+                    {isMobile ? 'All' : 'Up to Date'}
                 </button>
 
-                <button
-                    className={`btn report-nav-btn ${view === 'weekly' ? 'btn-primary' : ''}`}
-                    onClick={() => toggleView('weekly')}
-                    style={{
-                        flex: 1,
-                        fontSize: '0.9rem',
-                        fontWeight: 600,
-                        padding: '12px',
-                        backgroundColor: view !== 'weekly' ? 'var(--color-bg-surface)' : undefined,
-                        color: view !== 'weekly' ? 'var(--color-text-main)' : undefined,
-                        border: view !== 'weekly' ? '1px solid var(--color-border)' : undefined,
-                        borderRadius: '16px'
-                    }}
-                >
-                    Week 🍩
-                </button>
+                {/* WEEK - Composite Grid Item */}
+                <div style={{
+                    position: 'relative',
+                    height: isMobile ? '38px' : '48px',
+                    display: 'flex',
+                    isolation: 'isolate',
+                    flex: '1', // Fill space 
+                    minWidth: isMobile ? '80px' : 'auto'
+                }}>
+                    <button
+                        onClick={() => switchToView('weekly')}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            background: view === 'weekly' ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                            color: view === 'weekly' ? 'white' : 'var(--color-text-main)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-md)',
+                            fontWeight: '600',
+                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                            transition: 'all 0.2s',
+                            zIndex: 1
+                        }}
+                    >
+                        Week 🍩
+                    </button>
+                    {/* Navigation Arrows Overlay */}
+                    {view === 'weekly' && (
+                        <>
+                            <button onClick={handlePrev} style={{
+                                position: 'absolute', left: 0, top: 0, bottom: 0,
+                                padding: isMobile ? '0 6px' : '0 12px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'white',
+                                borderTopLeftRadius: 'var(--radius-md)',
+                                borderBottomLeftRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                zIndex: 5,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <ChevronLeft size={isMobile ? 16 : 18} />
+                            </button>
+                            <button
+                                onClick={handleNext}
+                                disabled={isNextDisabled}
+                                style={{
+                                    position: 'absolute', right: 0, top: 0, bottom: 0,
+                                    padding: isMobile ? '0 6px' : '0 12px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: 'white',
+                                    borderTopRightRadius: 'var(--radius-md)',
+                                    borderBottomRightRadius: 'var(--radius-md)',
+                                    cursor: isNextDisabled ? 'default' : 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    opacity: isNextDisabled ? 0.4 : 1,
+                                    zIndex: 5
+                                }}>
+                                <ChevronRight size={isMobile ? 16 : 18} />
+                            </button>
+                        </>
+                    )}
+                </div>
 
-                <button
-                    className={`btn report-nav-btn ${view === 'monthly' ? 'btn-primary' : ''}`}
-                    onClick={() => toggleView('monthly')}
-                    style={{
-                        flex: 1,
-                        fontSize: '0.9rem',
-                        fontWeight: 600,
-                        padding: '12px',
-                        backgroundColor: view !== 'monthly' ? 'var(--color-bg-surface)' : undefined,
-                        color: view !== 'monthly' ? 'var(--color-text-main)' : undefined,
-                        border: view !== 'monthly' ? '1px solid var(--color-border)' : undefined,
-                        borderRadius: '16px'
-                    }}
-                >
-                    Month 🥐
-                </button>
+                {/* MONTH - Composite Grid Item */}
+                <div style={{
+                    position: 'relative',
+                    height: isMobile ? '38px' : '48px',
+                    display: 'flex',
+                    isolation: 'isolate',
+                    flex: '1',
+                    minWidth: isMobile ? '80px' : 'auto'
+                }}>
+                    <button
+                        onClick={() => switchToView('monthly')}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            background: view === 'monthly' ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                            color: view === 'monthly' ? 'white' : 'var(--color-text-main)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-md)',
+                            fontWeight: '600',
+                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                            transition: 'all 0.2s',
+                            zIndex: 1
+                        }}
+                    >
+                        Month 🥐
+                    </button>
+                    {/* Navigation Arrows Overlay */}
+                    {view === 'monthly' && (
+                        <>
+                            <button onClick={handlePrev} style={{
+                                position: 'absolute', left: 0, top: 0, bottom: 0,
+                                padding: isMobile ? '0 6px' : '0 12px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'white',
+                                borderTopLeftRadius: 'var(--radius-md)',
+                                borderBottomLeftRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                zIndex: 5,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <ChevronLeft size={isMobile ? 16 : 18} />
+                            </button>
+                            <button
+                                onClick={handleNext}
+                                disabled={isNextDisabled}
+                                style={{
+                                    position: 'absolute', right: 0, top: 0, bottom: 0,
+                                    padding: isMobile ? '0 6px' : '0 12px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: 'white',
+                                    borderTopRightRadius: 'var(--radius-md)',
+                                    borderBottomRightRadius: 'var(--radius-md)',
+                                    cursor: isNextDisabled ? 'default' : 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    opacity: isNextDisabled ? 0.4 : 1,
+                                    zIndex: 5
+                                }}>
+                                <ChevronRight size={isMobile ? 16 : 18} />
+                            </button>
+                        </>
+                    )}
+                </div>
 
+                {/* CALENDAR */}
                 <button
-                    onClick={() => toggleView('daily')}
-                    className={`btn report-nav-btn ${showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date())) ? 'btn-primary' : ''}`}
+                    onClick={() => switchToView('daily')}
                     style={{
-                        padding: '12px',
-                        backgroundColor: (showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date()))) ? 'var(--color-primary)' : 'var(--color-bg-surface)',
-                        color: (showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date()))) ? 'white' : 'var(--color-text-main)',
-                        border: (showCalendar || (view === 'daily' && !isSameDay(selectedDate, new Date()))) ? 'none' : '1px solid var(--color-border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '46px',
-                        height: '46px',
-                        borderRadius: '16px'
+                        height: isMobile ? '38px' : '48px',
+                        width: isMobile ? '38px' : '48px',
+                        background: (showCalendar || view === 'daily') ? 'var(--color-primary)' : 'var(--color-bg-surface)',
+                        color: (showCalendar || view === 'daily') ? 'white' : 'var(--color-text-main)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flex: '0 0 auto'
                     }}
-                    title="Select Date"
                 >
-                    <CalendarIcon size={20} />
+                    <CalendarIcon size={isMobile ? 18 : 20} />
                 </button>
             </div>
+
+
+            {/* 2. Header & Actions - Row 2 */}
+            <div style={{
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center', // Fix vertical alignment
+                justifyContent: 'space-between',
+                gap: '8px',
+                flexShrink: 0
+            }}>
+                <h2 style={{
+                    fontSize: isMobile ? '1rem' : '1.25rem', // Smaller on mobile
+                    fontWeight: '700',
+                    color: 'var(--color-text-main)',
+                    letterSpacing: '-0.5px',
+                    margin: 0,
+                    marginRight: 'auto',
+                    lineHeight: '1.2',
+                    paddingRight: '10px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                }}>
+                    {getHeaderText()}
+                </h2>
+
+                <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', alignItems: 'center' }}>
+                    <button
+                        onClick={() => setCurrentView('analytics')}
+                        className="btn btn-premium-hover"
+                        style={{
+                            padding: isMobile ? '8px 10px' : '10px 16px',
+                            background: 'transparent',
+                            color: 'var(--color-text-main)',
+                            border: '1px solid var(--color-border)',
+                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            fontWeight: 600,
+                            borderRadius: 'var(--radius-md)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        <PieChartIcon size={isMobile ? 16 : 18} />
+                        <span className={isMobile ? 'hide-mobile-xs' : ''}>Analytics</span>
+                    </button>
+                    <button
+                        onClick={() => setShowExportModal(true)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: 'var(--color-bg-surface)', // Fix for ghost button
+                            border: '1px solid var(--color-border)',
+                            padding: isMobile ? '8px 10px' : '10px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            fontWeight: '600',
+                            color: 'var(--color-text-main)',
+                            cursor: 'pointer',
+                            boxShadow: 'var(--shadow-sm)',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        <Download size={isMobile ? 16 : 18} />
+                        Export
+                    </button>
+                </div>
+            </div>
+
+            {/* Calendar Calendar */}
+            {showCalendar && (
+                <div className="scale-in" style={{ marginBottom: '24px', flexShrink: 0 }}>
+                    <Calendar
+                        onChange={handleDateChange}
+                        value={selectedDate}
+                        maxDate={new Date()}
+                        tileContent={({ date, view: calendarView }) =>
+                            calendarView === 'month' && hasTransaction(date) ? <div className="tile-dot"></div> : null
+                        }
+                    />
+                </div>
+            )}
 
             {/* Export Modal */}
             <ExportModal
@@ -409,65 +660,17 @@ const Reports = ({ setCurrentView }) => {
                 onClose={() => setShowExportModal(false)}
             />
 
-            {/* Calendar Widget (Conditional) */}
-            {showCalendar && (
-                <div style={{ animation: 'fadeIn 0.2s ease-out', flexShrink: 0 }}>
-                    <Calendar
-                        onChange={handleDateChange}
-                        value={selectedDate}
-                        maxDate={new Date()}
-                        tileContent={({ date, view }) => view === 'month' && hasTransaction(date) ? <div className="tile-dot"></div> : null}
-                    />
-                </div>
-            )}
-
-
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexShrink: 0, gap: '8px', flexWrap: 'nowrap' }}>
-                <h3 className="reports-title">{getTitle()}</h3>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={() => setCurrentView('analytics')}
-                        className="btn btn-premium-hover"
-                        style={{
-                            padding: '8px 12px',
-                            backgroundColor: 'var(--color-bg-surface)',
-                            color: 'var(--color-primary)',
-                            border: '1px solid var(--color-border)',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            borderRadius: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}
-                    >
-                        <PieChartIcon size={18} /> Analytics
-                    </button>
-                    <button
-                        onClick={() => setShowExportModal(true)}
-                        className="btn btn-premium-hover"
-                        style={{
-                            padding: '8px 12px',
-                            backgroundColor: 'var(--color-bg-surface)',
-                            color: 'var(--color-text-main)',
-                            border: '1px solid var(--color-border)',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            borderRadius: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}
-                    >
-                        <Download size={18} /> Export
-                    </button>
-                </div>
-            </div>
-
-            {/* Table Section (Flex 1) */}
-            {/* Table Section (Flex 1) */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden', flex: '1 1 0', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {/* Stats and Table Section - Fill Vertical Space */}
+            <div className="card" style={{
+                padding: 0,
+                overflow: 'hidden',
+                flex: '1 1 0', // Vertical Fill
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                marginBottom: '20px'
+            }}>
                 {loading && (
                     <div style={{
                         position: 'absolute', inset: 0, backgroundColor: 'var(--color-bg-surface-transparent)',
@@ -476,26 +679,41 @@ const Reports = ({ setCurrentView }) => {
                         <div className="spinner"></div>
                     </div>
                 )}
-                <div style={{ overflowY: 'auto', flex: 1 }}>
+                <div style={{ overflowY: 'auto', flex: 1, paddingBottom: '40px' }}> {/* Padding needed for scroll end */}
                     {reportData.length > 0 ? (
                         <>
                             <div style={{ borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, backgroundColor: 'var(--color-bg-surface)', zIndex: 10 }}>
                                 <div style={{
                                     display: 'grid',
-                                    gridTemplateColumns: '100px 1fr 125px',
+                                    gridTemplateColumns: 'minmax(100px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr)', // Even grid
                                     maxWidth: '600px',
                                     margin: '0 auto',
-                                    padding: '16px 0'
+                                    padding: '16px 8px'
                                 }}>
                                     {[
-                                        { label: 'Total Sales 🧁', value: reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : 0), 0), color: 'var(--color-success)', align: 'left', padding: '0 16px' },
-                                        { label: 'Total Expense 💸', value: reportData.reduce((acc, curr) => acc + (curr.type === 'expense' ? curr.amount : 0), 0), color: 'var(--color-danger)', align: 'center', padding: '0 8px' },
-                                        { label: 'Net Profit 💼', value: reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : -curr.amount), 0), color: 'var(--color-text-main)', align: 'right', padding: '0 16px' }
+                                        {
+                                            label: 'Total Sales 🧁',
+                                            value: asyncStats ? asyncStats.totalSales : reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : 0), 0),
+                                            color: 'var(--color-success)',
+                                            align: 'left',
+                                        },
+                                        {
+                                            label: 'Total Expense 💸',
+                                            value: asyncStats ? asyncStats.totalExpense : reportData.reduce((acc, curr) => acc + (curr.type === 'expense' ? curr.amount : 0), 0),
+                                            color: 'var(--color-danger)',
+                                            align: 'center',
+                                        },
+                                        {
+                                            label: 'Net Profit 💼',
+                                            value: asyncStats ? asyncStats.netProfit : reportData.reduce((acc, curr) => acc + (curr.type === 'sale' ? curr.amount : -curr.amount), 0),
+                                            color: 'var(--color-text-main)',
+                                            align: 'right',
+                                        }
                                     ].map((item, i) => (
-                                        <div key={i} style={{ textAlign: item.align, padding: item.padding, whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '4px', whiteSpace: 'nowrap' }}>{item.label}</div>
-                                            <div style={{ color: item.color, fontWeight: '700', fontSize: '1.1rem', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
-                                                ₹ {item.value.toFixed(2)}
+                                        <div key={i} style={{ textAlign: item.align, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '4px', textOverflow: 'ellipsis', overflow: 'hidden' }}>{item.label}</div>
+                                            <div style={{ color: item.color, fontWeight: '700', fontSize: '1.1rem', letterSpacing: '-0.5px' }}>
+                                                {statsLoading ? '...' : `₹ ${item.value.toFixed(2)}`}
                                             </div>
                                         </div>
                                     ))}
@@ -512,13 +730,13 @@ const Reports = ({ setCurrentView }) => {
                             }}>
                                 <thead style={{ position: 'sticky', top: '75px', backgroundColor: 'var(--color-bg-surface)', zIndex: 5, boxShadow: '0 1px 0 var(--color-border)' }}>
                                     <tr style={{ textAlign: 'left' }}>
-                                        <th style={{ padding: '12px 16px', width: '100px', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
+                                        <th style={{ padding: '12px 16px', width: '90px', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date</th>
                                         <th style={{ padding: '12px 8px', textAlign: 'center', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</th>
-                                        <th style={{ padding: '12px 16px', textAlign: 'right', width: '125px', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'right', width: '110px', color: 'var(--color-text-muted)', fontWeight: '600', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {reportData.map(t => (
+                                    {displayedTransactions.map(t => (
                                         <tr key={t.id} style={{ borderBottom: '1px solid var(--color-bg-body)', transition: 'background-color 0.2s' }}>
                                             <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
                                                 <div style={{ fontWeight: '500', color: 'var(--color-text-main)' }}>{format(new Date(t.date), 'dd/MM')}</div>
@@ -534,11 +752,32 @@ const Reports = ({ setCurrentView }) => {
                                             </td>
                                         </tr>
                                     ))}
+                                    {/* Load More / Show Full History logic */}
+                                    {!showAllHistory && view === 'uptodate' && (
+                                        <tr>
+                                            <td colSpan="3" style={{ padding: '16px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowAllHistory(true);
+                                                        // When showing all, we need to instruct the context to fetch EVERYTHING.
+                                                        setViewDateRange(new Date(0), new Date()); // Reset range to global
+                                                    }}
+                                                    className="btn btn-primary"
+                                                    style={{ width: '100%', borderRadius: '12px', fontSize: '0.9rem' }}
+                                                >
+                                                    Show All History
+                                                </button>
+                                                <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                    Showing last 7 days.
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </>
                     ) : (
-                        !loading && <EmptyState message="No transactions for this range." />
+                        !loading && <EmptyState />
                     )}
                 </div>
             </div>
