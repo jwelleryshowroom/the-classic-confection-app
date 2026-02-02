@@ -202,8 +202,16 @@ const Reports = ({ setCurrentView, isActive }) => {
     const [asyncStats, setAsyncStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(false);
 
+    // Track the currently visible month in the calendar 
+    const [activeCalendarDate, setActiveCalendarDate] = useState(selectedDate);
+
     // Mobile Detection
     const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+    // Sync activeCalendarDate when selectedDate changes (so calendar opens to correct month)
+    React.useEffect(() => {
+        setActiveCalendarDate(selectedDate);
+    }, [selectedDate]);
 
     React.useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 640);
@@ -238,6 +246,9 @@ const Reports = ({ setCurrentView, isActive }) => {
             }
         } else if (view === 'daily') {
             const nextDay = addDays(selectedDate, 1);
+            if (startOfDay(nextDay) <= today) {
+                setSelectedDate(prev => addDays(prev, 1));
+            }
         }
     };
 
@@ -261,6 +272,11 @@ const Reports = ({ setCurrentView, isActive }) => {
             const nextMonth = addMonths(selectedDate, 1);
             return startOfMonth(nextMonth) > today;
         }
+        // Daily limit
+        if (view === 'daily') {
+            const nextDay = addDays(selectedDate, 1);
+            return startOfDay(nextDay) > today;
+        }
         return false;
     }, [view, selectedDate]);
 
@@ -274,7 +290,8 @@ const Reports = ({ setCurrentView, isActive }) => {
         }
 
         if (view === 'daily') {
-            return transactions.filter(t => isSameDay(new Date(t.date), selectedDate));
+            return transactions.filter(t => isSameDay(new Date(t.date), selectedDate))
+                .sort((a, b) => new Date(b.date) - new Date(a.date)); // Ensure sorting for daily too
         }
 
         const dateBase = selectedDate;
@@ -319,9 +336,18 @@ const Reports = ({ setCurrentView, isActive }) => {
             start = startOfDay(subDays(today, 7));
             end = endOfDay(today);
         } else if (view === 'daily') {
-            // Fetch month data even for daily view so calendar dots work
-            start = startOfMonth(now);
-            end = endOfMonth(now);
+            // Fetch month data based on ACTIVE calendar view + Selected Date
+            // This ensures we have dots for the month being viewed, AND data for the selected day list
+            const startSelected = startOfMonth(now);
+            const endSelected = endOfMonth(now);
+
+            const startActive = startOfMonth(activeCalendarDate);
+            const endActive = endOfMonth(activeCalendarDate);
+
+            // Union range
+            start = startActive < startSelected ? startActive : startSelected;
+            end = endActive > endSelected ? endActive : endSelected;
+
         } else if (view === 'weekly') {
             start = startOfWeek(now, { weekStartsOn: 1 });
             end = endOfWeek(now, { weekStartsOn: 1 });
@@ -345,7 +371,7 @@ const Reports = ({ setCurrentView, isActive }) => {
             setAsyncStats(null);
         }
 
-    }, [view, selectedDate, setViewDateRange, currentRange.start, currentRange.end, isActive, getFinancialStats, showAllHistory]);
+    }, [view, selectedDate, activeCalendarDate, setViewDateRange, currentRange.start, currentRange.end, isActive, getFinancialStats, showAllHistory]);
 
     // Dynamic Header Text
     const getHeaderText = () => {
@@ -661,6 +687,7 @@ const Reports = ({ setCurrentView, isActive }) => {
                 <div className="scale-in" style={{ marginBottom: '24px', flexShrink: 0 }}>
                     <Calendar
                         onChange={handleDateChange}
+                        onActiveStartDateChange={({ activeStartDate }) => setActiveCalendarDate(activeStartDate)}
                         value={selectedDate}
                         maxDate={new Date()}
                         tileContent={({ date, view: calendarView }) =>
