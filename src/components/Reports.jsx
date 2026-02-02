@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useTransactions } from '../context/useTransactions';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format, isSameDay, subWeeks, addWeeks, subMonths, addMonths, subDays, startOfDay, endOfDay, addDays } from 'date-fns';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format, isSameDay, subWeeks, addWeeks, subMonths, addMonths, subDays, startOfDay, endOfDay, addDays, isSameWeek } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 import { Download, BarChart2, Calendar as CalendarIcon, Inbox, PieChart as PieChartIcon, ChevronLeft, ChevronRight, Infinity as InfinityIcon, CalendarRange, CalendarDays } from 'lucide-react';
@@ -319,8 +319,9 @@ const Reports = ({ setCurrentView, isActive }) => {
             start = startOfDay(subDays(today, 7));
             end = endOfDay(today);
         } else if (view === 'daily') {
-            start = startOfDay(now);
-            end = endOfDay(now);
+            // Fetch month data even for daily view so calendar dots work
+            start = startOfMonth(now);
+            end = endOfMonth(now);
         } else if (view === 'weekly') {
             start = startOfWeek(now, { weekStartsOn: 1 });
             end = endOfWeek(now, { weekStartsOn: 1 });
@@ -353,16 +354,21 @@ const Reports = ({ setCurrentView, isActive }) => {
 
         if (view === 'monthly') {
             return isMobile
-                ? format(selectedDate, 'MMM yyyy')  // Short for Mobile: "Feb 2026"
+                ? `This Month (${format(selectedDate, "MMM ''yy")})`
                 : `This Month (${format(selectedDate, 'MMMM yyyy')})`;
         }
 
         if (view === 'weekly') {
             const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
             const end = endOfWeek(selectedDate, { weekStartsOn: 1 });
-            return isMobile
-                ? `${format(start, 'dd MMM')} - ${format(end, 'dd MMM')}`
-                : `This Week (${format(start, 'dd MMM')} - ${format(end, 'dd MMM')})`;
+            const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
+
+            // Mobile: "This Week (02 Feb - 08 Feb)" or "02 Feb - 08 Feb"
+            const dateRange = `${format(start, 'dd MMM')} - ${format(end, 'dd MMM')}`;
+            if (isMobile) {
+                return isCurrentWeek ? `This Week (${dateRange})` : dateRange;
+            }
+            return isCurrentWeek ? `This Week (${dateRange})` : `Week of ${dateRange}`;
         }
         return 'Reports';
     };
@@ -383,47 +389,47 @@ const Reports = ({ setCurrentView, isActive }) => {
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: isMobile ? '8px' : '12px',
+                gap: '8px',
                 marginBottom: isMobile ? '12px' : '16px',
                 width: '100%',
                 flexShrink: 0,
-                overflowX: isMobile ? 'auto' : 'visible', // Allow side scroll vs grid wrap
-                flexWrap: isMobile ? 'nowrap' : 'wrap', // Force single row on mobile
-                paddingBottom: isMobile ? '4px' : '0', // Space for scrollbar if any
+                overflowX: isMobile ? 'auto' : 'visible',
+                flexWrap: isMobile ? 'nowrap' : 'wrap',
+                paddingBottom: isMobile ? '4px' : '0',
             }}>
                 {/* UP TO DATE */}
                 <button
                     onClick={() => switchToView('uptodate')}
                     style={{
-                        padding: isMobile ? '8px 10px' : '12px 16px',
+                        padding: isMobile ? '8px 12px' : '12px 16px',
                         background: view === 'uptodate' ? 'var(--color-primary)' : 'var(--color-bg-surface)',
                         color: view === 'uptodate' ? 'white' : 'var(--color-text-main)',
                         border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius-md)',
                         fontWeight: '600',
-                        fontSize: isMobile ? '0.8rem' : '0.9rem',
+                        fontSize: isMobile ? '0.9rem' : '1.0rem',
                         cursor: 'pointer',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '4px' : '8px',
                         transition: 'all 0.2s',
                         boxShadow: view === 'uptodate' ? '0 4px 12px var(--color-primary-light-opacity)' : 'none',
-                        height: isMobile ? '38px' : '48px',
+                        height: isMobile ? '42px' : '48px',
                         whiteSpace: 'nowrap',
-                        flex: isMobile ? '0 0 auto' : '1', // Mobile sets fixed size if needed
-                        flexGrow: isMobile ? 0 : 1
+                        flex: '0 0 auto'
                     }}
                 >
-                    <InfinityIcon size={isMobile ? 16 : 18} />
+                    <InfinityIcon size={isMobile ? 20 : 22} />
                     {isMobile ? 'All' : 'Up to Date'}
                 </button>
 
-                {/* WEEK - Composite Grid Item */}
+                {/* WEEK - Dynamic Flex */}
                 <div style={{
                     position: 'relative',
-                    height: isMobile ? '38px' : '48px',
+                    height: isMobile ? '42px' : '48px',
                     display: 'flex',
                     isolation: 'isolate',
-                    flex: '1', // Fill space 
-                    minWidth: isMobile ? '80px' : 'auto'
+                    flex: view === 'weekly' ? '2' : '1', // Grow when active
+                    minWidth: isMobile ? '80px' : 'auto',
+                    transition: 'flex 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>
                     <button
                         onClick={() => switchToView('weekly')}
@@ -435,11 +441,12 @@ const Reports = ({ setCurrentView, isActive }) => {
                             border: '1px solid var(--color-border)',
                             borderRadius: 'var(--radius-md)',
                             fontWeight: '600',
-                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            fontSize: isMobile ? '0.9rem' : '1.0rem', // Increased font
                             cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
                             transition: 'all 0.2s',
-                            zIndex: 1
+                            zIndex: 1,
+                            padding: '0 4px'
                         }}
                     >
                         Week 🍩
@@ -449,7 +456,7 @@ const Reports = ({ setCurrentView, isActive }) => {
                         <>
                             <button onClick={handlePrev} style={{
                                 position: 'absolute', left: 0, top: 0, bottom: 0,
-                                padding: isMobile ? '0 6px' : '0 12px',
+                                padding: isMobile ? '0 16px' : '0 20px',  // Larger touch target
                                 border: 'none',
                                 background: 'transparent',
                                 color: 'white',
@@ -459,14 +466,14 @@ const Reports = ({ setCurrentView, isActive }) => {
                                 zIndex: 5,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
-                                <ChevronLeft size={isMobile ? 16 : 18} />
+                                <ChevronLeft size={isMobile ? 20 : 22} />
                             </button>
                             <button
                                 onClick={handleNext}
                                 disabled={isNextDisabled}
                                 style={{
                                     position: 'absolute', right: 0, top: 0, bottom: 0,
-                                    padding: isMobile ? '0 6px' : '0 12px',
+                                    padding: isMobile ? '0 16px' : '0 20px', // Larger touch target
                                     border: 'none',
                                     background: 'transparent',
                                     color: 'white',
@@ -477,20 +484,21 @@ const Reports = ({ setCurrentView, isActive }) => {
                                     opacity: isNextDisabled ? 0.4 : 1,
                                     zIndex: 5
                                 }}>
-                                <ChevronRight size={isMobile ? 16 : 18} />
+                                <ChevronRight size={isMobile ? 20 : 22} />
                             </button>
                         </>
                     )}
                 </div>
 
-                {/* MONTH - Composite Grid Item */}
+                {/* MONTH - Dynamic Flex */}
                 <div style={{
                     position: 'relative',
-                    height: isMobile ? '38px' : '48px',
+                    height: isMobile ? '42px' : '48px',
                     display: 'flex',
                     isolation: 'isolate',
-                    flex: '1',
-                    minWidth: isMobile ? '80px' : 'auto'
+                    flex: view === 'monthly' ? '2' : '1', // Grow when active
+                    minWidth: isMobile ? '80px' : 'auto',
+                    transition: 'flex 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}>
                     <button
                         onClick={() => switchToView('monthly')}
@@ -502,11 +510,12 @@ const Reports = ({ setCurrentView, isActive }) => {
                             border: '1px solid var(--color-border)',
                             borderRadius: 'var(--radius-md)',
                             fontWeight: '600',
-                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            fontSize: isMobile ? '0.9rem' : '1.0rem', // Increased font
                             cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
                             transition: 'all 0.2s',
-                            zIndex: 1
+                            zIndex: 1,
+                            padding: '0 4px'
                         }}
                     >
                         Month 🥐
@@ -516,7 +525,7 @@ const Reports = ({ setCurrentView, isActive }) => {
                         <>
                             <button onClick={handlePrev} style={{
                                 position: 'absolute', left: 0, top: 0, bottom: 0,
-                                padding: isMobile ? '0 6px' : '0 12px',
+                                padding: isMobile ? '0 16px' : '0 20px',
                                 border: 'none',
                                 background: 'transparent',
                                 color: 'white',
@@ -526,14 +535,14 @@ const Reports = ({ setCurrentView, isActive }) => {
                                 zIndex: 5,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
-                                <ChevronLeft size={isMobile ? 16 : 18} />
+                                <ChevronLeft size={isMobile ? 20 : 22} />
                             </button>
                             <button
                                 onClick={handleNext}
                                 disabled={isNextDisabled}
                                 style={{
                                     position: 'absolute', right: 0, top: 0, bottom: 0,
-                                    padding: isMobile ? '0 6px' : '0 12px',
+                                    padding: isMobile ? '0 16px' : '0 20px',
                                     border: 'none',
                                     background: 'transparent',
                                     color: 'white',
@@ -544,7 +553,7 @@ const Reports = ({ setCurrentView, isActive }) => {
                                     opacity: isNextDisabled ? 0.4 : 1,
                                     zIndex: 5
                                 }}>
-                                <ChevronRight size={isMobile ? 16 : 18} />
+                                <ChevronRight size={isMobile ? 20 : 22} />
                             </button>
                         </>
                     )}
@@ -552,10 +561,17 @@ const Reports = ({ setCurrentView, isActive }) => {
 
                 {/* CALENDAR */}
                 <button
-                    onClick={() => switchToView('daily')}
+                    onClick={() => {
+                        if (view !== 'daily') {
+                            setView('daily');
+                            setShowCalendar(true);
+                        } else {
+                            setShowCalendar((prev) => !prev);
+                        }
+                    }}
                     style={{
-                        height: isMobile ? '38px' : '48px',
-                        width: isMobile ? '38px' : '48px',
+                        height: isMobile ? '42px' : '48px', // Match new height
+                        width: isMobile ? '42px' : '48px',
                         background: (showCalendar || view === 'daily') ? 'var(--color-primary)' : 'var(--color-bg-surface)',
                         color: (showCalendar || view === 'daily') ? 'white' : 'var(--color-text-main)',
                         border: '1px solid var(--color-border)',
@@ -565,7 +581,7 @@ const Reports = ({ setCurrentView, isActive }) => {
                         flex: '0 0 auto'
                     }}
                 >
-                    <CalendarIcon size={isMobile ? 18 : 20} />
+                    <CalendarIcon size={isMobile ? 20 : 22} />
                 </button>
             </div>
 
